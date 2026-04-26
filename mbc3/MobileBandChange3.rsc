@@ -20,6 +20,7 @@
 :global mbc3PendingLRsrpCount
 :global mbc3PendingLSinr
 :global mbc3PendingLSinrCount
+:global mbc3QualityMonitor
 
 :global mbc3Probe
 :global mbc3ProbeDetail
@@ -51,11 +52,13 @@
 :local debug false
 :local debugRaw false
 :local heartbeatEvery 60
+:local qualityMonitor true
 
 :if ([:typeof $mbc3Debug] != "nothing") do={ :set debug $mbc3Debug }
 :if ([:typeof $mbc3DebugRaw] != "nothing") do={ :set debugRaw $mbc3DebugRaw }
 :if ([:typeof $mbc3HeartbeatEvery] != "nothing") do={ :set heartbeatEvery $mbc3HeartbeatEvery }
 :if ($heartbeatEvery < 1) do={ :set heartbeatEvery 60 }
+:if ([:typeof $mbc3QualityMonitor] != "nothing") do={ :set qualityMonitor $mbc3QualityMonitor }
 
 # -----------------------------
 # Probe snapshot + init
@@ -747,80 +750,87 @@
 # Signal quality label transitions
 # 2-run debounce: quality event fires only when new class is seen twice in a row.
 # Prevents noise from signals hovering near class thresholds.
+# Disabled entirely when mbc3QualityMonitor = false — no events, no saves.
 # -----------------------------
 :set mbc3Probe "compare-quality"
 :set mbc3ProbeDetail "label-check-debounced"
 
-:local doLRsrpDebounce false
-:if ($mbc3LastLRsrp != "") do={
-    :if ($lRsrp != "-") do={
-        :if ($lRsrp != $mbc3LastLRsrp) do={ :set doLRsrpDebounce true }
-    }
-}
-:if ($doLRsrpDebounce = true) do={
-    :if ($mbc3PendingLRsrp = $lRsrp) do={
-        :set mbc3PendingLRsrpCount ($mbc3PendingLRsrpCount + 1)
-    } else={
-        :set mbc3PendingLRsrp $lRsrp
-        :set mbc3PendingLRsrpCount 1
-    }
-    :if ($mbc3PendingLRsrpCount >= 2) do={
-        :log warning ($logPrefix . "LTE rsrp-quality-change from=" . $mbc3LastLRsrp . " to=" . $lRsrp . " rsrp=" . $usedRsrp . "dBm primary=\"" . $usedPrimary . "\" ca=\"" . $compareCA . "\"")
-        :set mbc3LastLRsrp $lRsrp
-        :set mbc3PendingLRsrp ""
-        :set mbc3PendingLRsrpCount 0
-        :set stateChanged true
-    }
-} else={
-    :local doResetLRsrp false
-    :if ($mbc3PendingLRsrp != "") do={ :set doResetLRsrp true }
-    :if ($mbc3PendingLRsrpCount != 0) do={ :set doResetLRsrp true }
-    :if ($doResetLRsrp = true) do={
-        :set mbc3PendingLRsrp ""
-        :set mbc3PendingLRsrpCount 0
-    }
-    :if ($lRsrp != "-") do={
-        :if ($mbc3LastLRsrp != $lRsrp) do={
-            :set mbc3LastLRsrp $lRsrp
-            :set stateChanged true
-        }
-    }
-}
+:if ($qualityMonitor = true) do={
 
-:local doLSinrDebounce false
-:if ($mbc3LastLSinr != "") do={
-    :if ($lSinr != "-") do={
-        :if ($lSinr != $mbc3LastLSinr) do={ :set doLSinrDebounce true }
-    }
-}
-:if ($doLSinrDebounce = true) do={
-    :if ($mbc3PendingLSinr = $lSinr) do={
-        :set mbc3PendingLSinrCount ($mbc3PendingLSinrCount + 1)
-    } else={
-        :set mbc3PendingLSinr $lSinr
-        :set mbc3PendingLSinrCount 1
-    }
-    :if ($mbc3PendingLSinrCount >= 2) do={
-        :log warning ($logPrefix . "LTE sinr-quality-change from=" . $mbc3LastLSinr . " to=" . $lSinr . " sinr=" . $usedSinr . "dB primary=\"" . $usedPrimary . "\" ca=\"" . $compareCA . "\"")
-        :set mbc3LastLSinr $lSinr
-        :set mbc3PendingLSinr ""
-        :set mbc3PendingLSinrCount 0
-        :set stateChanged true
-    }
-} else={
-    :local doResetLSinr false
-    :if ($mbc3PendingLSinr != "") do={ :set doResetLSinr true }
-    :if ($mbc3PendingLSinrCount != 0) do={ :set doResetLSinr true }
-    :if ($doResetLSinr = true) do={
-        :set mbc3PendingLSinr ""
-        :set mbc3PendingLSinrCount 0
-    }
-    :if ($lSinr != "-") do={
-        :if ($mbc3LastLSinr != $lSinr) do={
-            :set mbc3LastLSinr $lSinr
-            :set stateChanged true
+    :local doLRsrpDebounce false
+    :if ($mbc3LastLRsrp != "") do={
+        :if ($lRsrp != "-") do={
+            :if ($lRsrp != $mbc3LastLRsrp) do={ :set doLRsrpDebounce true }
         }
     }
+    :if ($doLRsrpDebounce = true) do={
+        :if ($mbc3PendingLRsrp = $lRsrp) do={
+            :set mbc3PendingLRsrpCount ($mbc3PendingLRsrpCount + 1)
+        } else={
+            :set mbc3PendingLRsrp $lRsrp
+            :set mbc3PendingLRsrpCount 1
+        }
+        :if ($mbc3PendingLRsrpCount >= 2) do={
+            :log warning ($logPrefix . "LTE rsrp-quality-change from=" . $mbc3LastLRsrp . " to=" . $lRsrp . " rsrp=" . $usedRsrp . "dBm primary=\"" . $usedPrimary . "\" ca=\"" . $compareCA . "\"")
+            :set mbc3LastLRsrp $lRsrp
+            :set mbc3PendingLRsrp ""
+            :set mbc3PendingLRsrpCount 0
+            :set stateChanged true
+        }
+    } else={
+        :local doResetLRsrp false
+        :if ($mbc3PendingLRsrp != "") do={ :set doResetLRsrp true }
+        :if ($mbc3PendingLRsrpCount != 0) do={ :set doResetLRsrp true }
+        :if ($doResetLRsrp = true) do={
+            :set mbc3PendingLRsrp ""
+            :set mbc3PendingLRsrpCount 0
+        }
+        :if ($lRsrp != "-") do={
+            :if ($mbc3LastLRsrp != $lRsrp) do={
+                :set mbc3LastLRsrp $lRsrp
+                :set stateChanged true
+            }
+        }
+    }
+
+    :local doLSinrDebounce false
+    :if ($mbc3LastLSinr != "") do={
+        :if ($lSinr != "-") do={
+            :if ($lSinr != $mbc3LastLSinr) do={ :set doLSinrDebounce true }
+        }
+    }
+    :if ($doLSinrDebounce = true) do={
+        :if ($mbc3PendingLSinr = $lSinr) do={
+            :set mbc3PendingLSinrCount ($mbc3PendingLSinrCount + 1)
+        } else={
+            :set mbc3PendingLSinr $lSinr
+            :set mbc3PendingLSinrCount 1
+        }
+        :if ($mbc3PendingLSinrCount >= 2) do={
+            :log warning ($logPrefix . "LTE sinr-quality-change from=" . $mbc3LastLSinr . " to=" . $lSinr . " sinr=" . $usedSinr . "dB primary=\"" . $usedPrimary . "\" ca=\"" . $compareCA . "\"")
+            :set mbc3LastLSinr $lSinr
+            :set mbc3PendingLSinr ""
+            :set mbc3PendingLSinrCount 0
+            :set stateChanged true
+        }
+    } else={
+        :local doResetLSinr false
+        :if ($mbc3PendingLSinr != "") do={ :set doResetLSinr true }
+        :if ($mbc3PendingLSinrCount != 0) do={ :set doResetLSinr true }
+        :if ($doResetLSinr = true) do={
+            :set mbc3PendingLSinr ""
+            :set mbc3PendingLSinrCount 0
+        }
+        :if ($lSinr != "-") do={
+            :if ($mbc3LastLSinr != $lSinr) do={
+                :set mbc3LastLSinr $lSinr
+                :set stateChanged true
+            }
+        }
+    }
+
+} else={
+    :set mbc3ProbeDetail "quality-monitoring-disabled"
 }
 
 # -----------------------------

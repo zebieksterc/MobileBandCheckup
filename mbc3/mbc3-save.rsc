@@ -21,6 +21,7 @@
 :global mbc3Debug
 :global mbc3DebugRaw
 :global mbc3HeartbeatEvery
+:global mbc3QualityMonitor
 :global mbc3LastPrimary
 :global mbc3LastCA
 :global mbc3LastCARaw
@@ -97,6 +98,9 @@
 
 :set out ($out . ":global mbc3HeartbeatEvery" . $nl)
 :set out ($out . ":set mbc3HeartbeatEvery " . [$intStr $mbc3HeartbeatEvery "60"] . $nl)
+
+:set out ($out . ":global mbc3QualityMonitor" . $nl)
+:set out ($out . ":set mbc3QualityMonitor " . [$boolStr $mbc3QualityMonitor] . $nl)
 
 # ===== COMPARISON STATE =====
 :set out ($out . ":global mbc3LastPrimary" . $nl)

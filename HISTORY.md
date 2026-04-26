@@ -4,6 +4,12 @@ Append-only. Never trim or delete entries. Newest first.
 
 ---
 
+## 2026-04-26 19:20 UTC — mbc3-final-20260425-write-min-v1
+
+- Added `mbc3QualityMonitor` boolean global (default `true`). When set `false`, the entire RSRP/SINR quality label comparison block is skipped — no `rsrp-quality-change` or `sinr-quality-change` events are logged and no NVRAM save is triggered by quality fluctuations.
+- Persisted `mbc3QualityMonitor` in `mbc3-save.rsc` so the setting survives reboots.
+- Updated `README.md` optional runtime globals section with the new variable.
+
 ## 2026-04-26 19:10 UTC — mbc3-final-20260425-write-min-v1
 
 - Added Git policy section to `CLAUDE.md` covering pre-commit checklist (README, HISTORY, LAST CHANGE block update order), commit message format, branching rule, and prohibited git operations.

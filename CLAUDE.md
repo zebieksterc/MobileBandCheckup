@@ -1,9 +1,9 @@
 # MobileBandCheckup — Project Policies
 
 <!-- LAST CHANGE — only this block is updated on each change; all policies below are fixed -->
-date: 2026-04-26 19:10 UTC
+date: 2026-04-26 19:20 UTC
 version: mbc3-final-20260425-write-min-v1
-change: Added Git policy section covering commit checklist, commit message format, branching, and prohibited git operations.
+change: Added mbc3QualityMonitor bool global to gate RSRP/SINR quality tracking; persisted in mbc3-save; documented in README.
 <!-- END LAST CHANGE -->
 
 ---

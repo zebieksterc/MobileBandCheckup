@@ -114,6 +114,9 @@ Set before (or after) the first run. These are persisted across reboots once `mb
 
 :global mbc3DebugRaw
 :set mbc3DebugRaw false        # raw (unformatted) metric lines on every event
+
+:global mbc3QualityMonitor
+:set mbc3QualityMonitor true   # set false to silence rsrp/sinr-quality-change events and reduce NVRAM writes
 ```
 
 ---
