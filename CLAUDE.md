@@ -1,9 +1,9 @@
 # MobileBandCheckup — Project Policies
 
 <!-- LAST CHANGE — only this block is updated on each change; all policies below are fixed -->
-date: 2026-04-26 19:20 UTC
+date: 2026-04-26 19:25 UTC
 version: mbc3-final-20260425-write-min-v1
-change: Added mbc3QualityMonitor bool global to gate RSRP/SINR quality tracking; persisted in mbc3-save; documented in README.
+change: Changed mbc3QualityMonitor default to false; quality tracking opt-in rather than opt-out.
 <!-- END LAST CHANGE -->
 
 ---
