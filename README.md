@@ -1,5 +1,7 @@
 # MobileBandCheckup
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 RouterOS scripting suite for MikroTik routers that monitors LTE/NR (5G NSA) band changes and signal quality on a modem interface, logging every meaningful transition to the system log and persisting comparison state across reboots.
 
 ---
@@ -127,3 +129,9 @@ Set before (or after) the first run. These are persisted across reboots once `mb
 |---|---|---|---|
 | `mbc3-restore` | startup | 0 (once) | `/system script run mbc3-restore` |
 | `mbc3-main` | startup | 1m | `/system script run MobileBandChange3` |
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).

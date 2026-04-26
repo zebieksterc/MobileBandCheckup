@@ -1,9 +1,9 @@
 # MobileBandCheckup — Project Policies
 
 <!-- LAST CHANGE — only this block is updated on each change; all policies below are fixed -->
-date: 2026-04-26 19:25 UTC
+date: 2026-04-26 19:30 UTC
 version: mbc3-final-20260425-write-min-v1
-change: Changed mbc3QualityMonitor default to false; quality tracking opt-in rather than opt-out.
+change: Added MIT LICENSE file and license badge and section to README.
 <!-- END LAST CHANGE -->
 
 ---
