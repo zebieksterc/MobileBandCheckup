@@ -1,9 +1,9 @@
 # MobileBandCheckup — Project Policies
 
 <!-- LAST CHANGE — only this block is updated on each change; all policies below are fixed -->
-date: 2026-04-26
+date: 2026-04-26 19:00 UTC
 version: mbc3-final-20260425-write-min-v1
-change: Initial README and project policies created. HISTORY.md seeded.
+change: Added time (HH:MM UTC) to LAST CHANGE block and HISTORY entries for precision. Updated HISTORY policy.
 <!-- END LAST CHANGE -->
 
 ---
@@ -53,7 +53,7 @@ Update `README.md` whenever script behaviour, structure, events logged, threshol
 
 ## HISTORY policy
 
-Update `HISTORY.md` on every change. The file is **append-only** — never trim, reorder, or delete existing entries. Each entry must include the date (`YYYY-MM-DD`), the version tag, and a plain-language description of what changed. Newest entries go at the top.
+Update `HISTORY.md` on every change. The file is **append-only** — never trim, reorder, or delete existing entries. Each entry must include the date and time (`YYYY-MM-DD HH:MM UTC`), the version tag, and a plain-language description of what changed. Newest entries go at the top.
 
 ## Prohibited patterns
 
