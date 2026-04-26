@@ -4,6 +4,11 @@ Append-only. Never trim or delete entries. Newest first.
 
 ---
 
+## 2026-04-26 19:30 UTC — mbc3-final-20260425-write-min-v1
+
+- Added `LICENSE` file (MIT, copyright 2026 zebieksterc).
+- Added MIT license badge to `README.md` header and a License section at the bottom.
+
 ## 2026-04-26 19:25 UTC — mbc3-final-20260425-write-min-v1
 
 - Changed `mbc3QualityMonitor` default from `true` to `false`. Quality tracking is now opt-in; NVRAM writes from signal quality fluctuations are suppressed unless explicitly enabled.
