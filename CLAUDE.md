@@ -1,9 +1,9 @@
 # MobileBandCheckup — Project Policies
 
 <!-- LAST CHANGE — only this block is updated on each change; all policies below are fixed -->
-date: 2026-04-26 19:00 UTC
+date: 2026-04-26 19:10 UTC
 version: mbc3-final-20260425-write-min-v1
-change: Added time (HH:MM UTC) to LAST CHANGE block and HISTORY entries for precision. Updated HISTORY policy.
+change: Added Git policy section covering commit checklist, commit message format, branching, and prohibited git operations.
 <!-- END LAST CHANGE -->
 
 ---
@@ -54,6 +54,25 @@ Update `README.md` whenever script behaviour, structure, events logged, threshol
 ## HISTORY policy
 
 Update `HISTORY.md` on every change. The file is **append-only** — never trim, reorder, or delete existing entries. Each entry must include the date and time (`YYYY-MM-DD HH:MM UTC`), the version tag, and a plain-language description of what changed. Newest entries go at the top.
+
+## Git policy
+
+**Before every commit**, in this order:
+1. Update `README.md` if behaviour, structure, or install procedure changed.
+2. Prepend a new entry to `HISTORY.md` with `YYYY-MM-DD HH:MM UTC`, the version tag, and a description of what changed.
+3. Update the `<!-- LAST CHANGE -->` block in `CLAUDE.md` with the same date/time, version, and a one-line summary.
+4. Stage all changed files together and commit in a single commit.
+
+**Commit message format:**
+```
+<short imperative summary under 72 chars>
+
+<bullet list of what changed and why, if not obvious>
+```
+
+**Branching:** develop on feature branches; never commit directly to `main`.
+
+**Prohibited git operations:** `--force` push, `--no-verify`, amending published commits, `reset --hard` without explicit instruction.
 
 ## Prohibited patterns
 

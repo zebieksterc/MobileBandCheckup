@@ -4,6 +4,10 @@ Append-only. Never trim or delete entries. Newest first.
 
 ---
 
+## 2026-04-26 19:10 UTC — mbc3-final-20260425-write-min-v1
+
+- Added Git policy section to `CLAUDE.md` covering pre-commit checklist (README, HISTORY, LAST CHANGE block update order), commit message format, branching rule, and prohibited git operations.
+
 ## 2026-04-26 19:00 UTC — mbc3-final-20260425-write-min-v1
 
 - Added time (`HH:MM UTC`) to `HISTORY.md` entry headers and to the `CLAUDE.md` LAST CHANGE block for precision.
