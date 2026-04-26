@@ -52,7 +52,7 @@
 :local debug false
 :local debugRaw false
 :local heartbeatEvery 60
-:local qualityMonitor true
+:local qualityMonitor false
 
 :if ([:typeof $mbc3Debug] != "nothing") do={ :set debug $mbc3Debug }
 :if ([:typeof $mbc3DebugRaw] != "nothing") do={ :set debugRaw $mbc3DebugRaw }

@@ -4,6 +4,11 @@ Append-only. Never trim or delete entries. Newest first.
 
 ---
 
+## 2026-04-26 19:25 UTC — mbc3-final-20260425-write-min-v1
+
+- Changed `mbc3QualityMonitor` default from `true` to `false`. Quality tracking is now opt-in; NVRAM writes from signal quality fluctuations are suppressed unless explicitly enabled.
+- Updated `README.md` runtime globals comment to reflect the new default.
+
 ## 2026-04-26 19:20 UTC — mbc3-final-20260425-write-min-v1
 
 - Added `mbc3QualityMonitor` boolean global (default `true`). When set `false`, the entire RSRP/SINR quality label comparison block is skipped — no `rsrp-quality-change` or `sinr-quality-change` events are logged and no NVRAM save is triggered by quality fluctuations.
