@@ -4,6 +4,18 @@ Append-only. Never trim or delete entries. Newest first.
 
 ---
 
+## 2026-06-01 00:00 UTC — mbc3-final-20260531-file-state+restore-guard
+
+- Backported the `file-state+restore-guard` revision of `MobileBandChange3` from `routeros_bundle` (bundle `routeros_bundle_b2.21_A2.0_S2.0_K2.21_D2.10_20260425_2245_wd5g-tdh`, helpers/mbc3-restore-state and scripts/MobileBandChange3, version tag `mbc3_r1|…|20260531|file-state+restore-guard|cs=a9a58787`).
+- **State persistence moved from `/system script source mbc3-state` to `/file mbc3-state.txt`.** State saves are now written inline by `MobileBandChange3` at each designated exit point via `/file print` + `/file set contents=`, with an `escapeStr` helper that escapes `\`, `"`, and `$` so any value survives a quoted `:set` round-trip.
+- **Deleted `mbc3-save.rsc`.** Saves are inline; there is no longer a separate save script.
+- **Rewrote `mbc3-restore.rsc`** to read `mbc3-state.txt`, validate start/end markers and size bounds, run every line through an allow-list guard (only `#` comments or `:global`/`:set` of a known persisted variable with a well-formed scalar/quoted value), and then `[:parse]` and execute the payload. Rejects embedded `\r`, unescaped `$`, unknown variable names, or any other suspicious line — cold-starts instead.
+- **Moved the startup restore-guard earlier in `MobileBandChange3`** — it now runs before any persisted-state read (runtime options, Last\*/Pending\* globals), eliminating the window in which `mbc3-main` could read defaults if `mbc3-restore` had not yet completed.
+- **Updated `mbc3-install.rsc`** to drop the `mbc3-save` script registration and the `mbc3-state` script-slot creation (no longer needed).
+- **Updated `:find` style throughout** to `[:typeof [:find …]] = "num"` (away from `= nil`) — explicit type test that is reliable across RouterOS versions.
+- **Collapsed the heartbeat log** to a single info line with `run-count`, `primary`, `rsrp`, `sinr`, and `nr-rsrp`.
+- **Updated `CLAUDE.md`** state-persistence, write-with-verify, stateChanged, and prohibited-patterns sections to reflect the new file-based design.
+
 ## 2026-04-26 19:30 UTC — mbc3-final-20260425-write-min-v1
 
 - Added `LICENSE` file (MIT, copyright 2026 zebieksterc).

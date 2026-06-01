@@ -53,21 +53,22 @@ Every event log includes the full context snapshot: data class, duplex mode, pri
 
 | File | Registered name | Role |
 |---|---|---|
-| `MobileBandChange3.rsc` | `MobileBandChange3` | Main poll loop — runs every 1 minute |
-| `mbc3-save.rsc` | `mbc3-save` | Persists globals to NVRAM script `mbc3-state` |
+| `MobileBandChange3.rsc` | `MobileBandChange3` | Main poll loop — runs every 1 minute; writes state inline |
 | `mbc3-restore.rsc` | `mbc3-restore` | Loads persisted state on boot (runs once) |
 | `mbc3-install.rsc` | _(import only)_ | Bootstrap installer — registers scripts and schedulers |
 | `mbc3-setup.rsc` | `mbc3-setup` | Re-registers schedulers only; idempotent, no .rsc files needed |
 
-A sixth script slot, `mbc3-state`, is auto-created by the installer and managed entirely by `mbc3-save`. It stores the serialized global state as RouterOS script source so that `mbc3-restore` can replay it on the next boot.
+State is stored in a single flat file, `/file mbc3-state.txt`, generated and overwritten by `MobileBandChange3` at each designated exit point. The file is created on the first save — no installer step is required for it.
 
 ---
 
 ## State persistence design
 
-State is stored inside `/system script source` (NVRAM) rather than flash files. This avoids flash wear and the RouterOS `/file` write API limitations. `mbc3-save` builds the restore script as a string, validates it with start/end markers and size bounds (300–60 000 bytes), writes it to the `mbc3-state` script slot, then reads it back and verifies length and markers. The write is retried up to three times on failure.
+State is stored in `/file mbc3-state.txt` as parse-replay code: a start marker, a sequence of `:global` / `:set` lines for each persisted variable, and an end marker. Saves are written inline inside `MobileBandChange3` (no separate `mbc3-save` script) using `/file print` + `/file set contents=` so that arbitrary string content — including `;`, `"`, `$`, and spaces — survives a quoted `:set` round-trip via an `escapeStr` helper.
 
-Globals persisted across reboots: `mbc3LastPrimary`, `mbc3LastCA`, `mbc3LastCARaw`, `mbc3LastLRsrp`, `mbc3LastLSinr`, `mbc3LastNrActive`, `mbc3PendingLRsrp/Count`, `mbc3PendingLSinr/Count`, and the three runtime-option globals (`mbc3Debug`, `mbc3DebugRaw`, `mbc3HeartbeatEvery`).
+On boot, `mbc3-restore` reads `mbc3-state.txt`, refuses to act on missing/short/oversized files, requires both markers, then runs every line through an **allow-list guard** that only accepts comments or `:global`/`:set` of a known persisted variable with a well-formed scalar/quoted value. Anything else — an embedded `\r`, an unescaped `$`, a value with unexpected characters, an unknown variable name — cold-starts instead of executing untrusted content. Only after the guard passes does it `[:parse]` and run the payload.
+
+Globals persisted across reboots: `mbc3LastPrimary`, `mbc3LastCA`, `mbc3LastCARaw`, `mbc3LastLRsrp`, `mbc3LastLSinr`, `mbc3LastNrActive`, `mbc3PendingLRsrp/Count`, `mbc3PendingLSinr/Count`, and the four runtime-option globals (`mbc3Debug`, `mbc3DebugRaw`, `mbc3HeartbeatEvery`, `mbc3QualityMonitor`).
 
 `mbc3LogInited` is intentionally **not** restored. The first run after every reboot always emits a fresh `LTE init` snapshot, making log analysis unambiguous.
 
@@ -79,7 +80,7 @@ Globals persisted across reboots: `mbc3LastPrimary`, `mbc3LastCA`, `mbc3LastCARa
 
 **2-run debounce on signal quality.** RSRP and SINR quality transitions only log when the new label is observed on two consecutive runs. This suppresses log noise from signals hovering near a class boundary.
 
-**CA normalization.** The carrier aggregation band list from the modem can contain duplicates or vary in ordering without a real composition change. `mbc3-save` normalises the list by removing exact duplicates (preserving first-seen order) before comparison, so only genuine set changes produce `ca-composition-change` events. Ordering/representation-only differences produce the lower-severity `ca-raw-change` event.
+**CA normalization.** The carrier aggregation band list from the modem can contain duplicates or vary in ordering without a real composition change. `MobileBandChange3` normalises the list with `normalizeCA` by removing exact duplicates (preserving first-seen order) before comparison, so only genuine set changes produce `ca-composition-change` events. Ordering/representation-only differences produce the lower-severity `ca-raw-change` event.
 
 **Primary change classification.** When the primary cell changes, the script classifies the change as `band-change`, `earfcn-change`, `phy-cellid-change`, or `details-change` (everything else), and includes old/new values for each field in the log line.
 
@@ -89,13 +90,13 @@ Globals persisted across reboots: `mbc3LastPrimary`, `mbc3LastCA`, `mbc3LastCARa
 
 ## Installation
 
-Upload all five `.rsc` files to the router flash, then:
+Upload the four `.rsc` files (`MobileBandChange3.rsc`, `mbc3-restore.rsc`, `mbc3-setup.rsc`, `mbc3-install.rsc`) to the router flash, then:
 
 ```
 /import file-name=mbc3-install.rsc
 ```
 
-The installer registers the four scripts, creates the `mbc3-state` slot, and adds the two scheduler entries. Source `.rsc` files can be removed from flash after install; everything runs from NVRAM scripts.
+The installer registers the three scripts (`MobileBandChange3`, `mbc3-restore`, `mbc3-setup`) and adds the two scheduler entries. The state file `mbc3-state.txt` is created automatically on the first save. Source `.rsc` files can be removed from flash after install; everything runs from NVRAM scripts.
 
 To update schedulers later without touching script source:
 
@@ -105,7 +106,7 @@ To update schedulers later without touching script source:
 
 ### Optional runtime globals
 
-Set before (or after) the first run. These are persisted across reboots once `mbc3-save` runs.
+Set before (or after) the first run. These are persisted across reboots once the first inline state save runs.
 
 ```
 :global mbc3HeartbeatEvery

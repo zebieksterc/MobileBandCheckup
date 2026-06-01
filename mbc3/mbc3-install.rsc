@@ -1,5 +1,5 @@
 # mbc3-install
-# revision: mbc3-final-20260425-write-min-v1
+# revision: mbc3-final-20260531-file-state+restore-guard
 #
 # Bootstrap installer. Run via:
 #   /import file-name=mbc3-install.rsc
@@ -8,16 +8,16 @@
 #
 # Requires these files to be present on router flash:
 #   MobileBandChange3.rsc
-#   mbc3-save.rsc
 #   mbc3-restore.rsc
 #   mbc3-setup.rsc
 #
 # What it does:
-#   1. Registers all four scripts in /system script
+#   1. Registers all three scripts in /system script
 #   2. Registers scheduler entries
 #
 # After install, source .rsc files can be removed — not needed at runtime.
-# State is stored in the mbc3-state system script (NVRAM), not on flash.
+# State is stored in /file mbc3-state.txt, written inline by MobileBandChange3
+# on every state change and read back by mbc3-restore on boot.
 # To update schedulers later without touching scripts: /system script run mbc3-setup
 
 :local logPrefix "[mbc3-install] "
@@ -78,22 +78,13 @@
 # --- Step 1: Register scripts ---
 $upsertScript "MobileBandChange3" "MobileBandChange3.rsc" "LTE band change monitor - main loop" "20000"
 
-$upsertScript "mbc3-save" "mbc3-save.rsc" "LTE band change monitor - persist state to NVRAM script" "2000"
-
 $upsertScript "mbc3-restore" "mbc3-restore.rsc" "LTE band change monitor - restore state on boot" "300"
 
 $upsertScript "mbc3-setup" "mbc3-setup.rsc" "LTE band change monitor - scheduler setup (safe to re-run)" "500"
 
-# Create the mbc3-state script slot if it does not exist.
-# This is the NVRAM-based state store — mbc3-save writes globals into its
-# source on every state change. mbc3-restore runs it on boot to reload them.
-# It starts empty; mbc3-save populates it on the first run.
-:if ([:len [/system script find name="mbc3-state"]] = 0) do={
-    /system script add name="mbc3-state" source="" comment="LTE band monitor - persisted state (auto-managed, do not edit)"
-    :log info ($logPrefix . "script created: mbc3-state")
-} else={
-    :log info ($logPrefix . "script exists: mbc3-state")
-}
+# State is stored in /file mbc3-state.txt. The file is created on the first
+# state save by MobileBandChange3 — no install step needed. mbc3-restore
+# tolerates a missing file (cold start path).
 
 # --- Step 2: Register scheduler entries ---
 # Order matters: mbc3-restore must appear before mbc3-main so it runs first on boot.

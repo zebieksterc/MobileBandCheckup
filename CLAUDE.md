@@ -1,9 +1,9 @@
 # MobileBandCheckup — Project Policies
 
 <!-- LAST CHANGE — only this block is updated on each change; all policies below are fixed -->
-date: 2026-04-26 19:30 UTC
-version: mbc3-final-20260425-write-min-v1
-change: Added MIT LICENSE file and license badge and section to README.
+date: 2026-06-01 00:00 UTC
+version: mbc3-final-20260531-file-state+restore-guard
+change: Backported file-based state persistence and earlier restore-guard placement from routeros_bundle. State now lives in /file mbc3-state.txt; mbc3-save.rsc removed (saves are inline in MobileBandChange3); mbc3-restore reads via [:parse] under an allow-list guard.
 <!-- END LAST CHANGE -->
 
 ---
@@ -14,7 +14,7 @@ RouterOS scripting (`.rsc`), MikroTik hardware, `lte1` interface. No local execu
 
 ## State persistence
 
-Never write state to `/file`. All persistence goes to `/system script source` (the `mbc3-state` slot). Any new persisted global must be added to both `mbc3-save.rsc` and `mbc3-restore.rsc`.
+State is stored in `/file mbc3-state.txt` as parse-replay code (markers + `:global`/`:set` lines). Saves are written inline by `MobileBandChange3` at designated exit points using `/file print` + `/file set contents=`. Restore (`mbc3-restore`) reads the file, validates start/end markers and size bounds, runs every line through an allow-list guard that only permits comments and `:global`/`:set` of known state variables with well-formed scalar/quoted values, and then `[:parse]`s and executes the payload. Any new persisted global must be added to both the `mbc3BuildState` helper inside `MobileBandChange3.rsc` and the allow-list in `mbc3-restore.rsc`. Do not write state anywhere other than `mbc3-state.txt`.
 
 ## Global variable naming
 
@@ -22,7 +22,7 @@ All globals prefixed `mbc3`. Every script that touches a global must declare it 
 
 ## Write-with-verify
 
-Every write to a script slot must: validate content (start marker + end marker + size bounds) before writing; read back and verify length and both markers after writing; retry up to 3 times; log `SAFE` / `MODERATE` / `DISRUPTIVE`-tagged messages on failure.
+Every state save must: build the payload with start/end markers; remove the existing `mbc3-state.txt`; `/file print file=` to create it, then `/file set contents=` with the payload; read back and verify the end marker is present. Failures log a warning and the next save retries from scratch — never leave a partial file in place.
 
 ## Upsert pattern
 
@@ -38,7 +38,7 @@ Every non-trivial step in the main loop must update `mbc3Probe` and `mbc3ProbeDe
 
 ## stateChanged discipline
 
-Set `stateChanged true` only for durable comparison-state changes. Volatile counters alone must not trigger a save. Call `mbc3-save` only at the designated exit points — never mid-script.
+Set `stateChanged true` only for durable comparison-state changes. Volatile counters alone must not trigger a save. The inline `mbc3-state.txt` write only fires at the designated exit points (iface-down, monitor-invalid, init, end-of-script) — never mid-script.
 
 ## Log severity
 
@@ -76,9 +76,9 @@ Update `HISTORY.md` on every change. The file is **append-only** — never trim,
 
 ## Prohibited patterns
 
-- `/file` writes for state
+- State writes to anywhere other than `/file mbc3-state.txt`
 - `/ping` or network calls from the main loop
-- `:delay` in the main loop
-- New globals not declared, saved, and restored
-- Extra `mbc3-save` calls outside designated exit points
+- `:delay` in the main loop, except the single 200ms settle after `/file print` in the state-save block
+- New globals not declared, included in `mbc3BuildState`, and listed in `mbc3-restore`'s allow-list
+- Extra inline state-save blocks outside the designated exit points
 - Stored find-result IDs passed to `set`
