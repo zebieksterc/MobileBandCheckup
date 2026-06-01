@@ -4,6 +4,8 @@
 
 RouterOS scripting suite for MikroTik routers that monitors LTE/NR (5G NSA) band changes and signal quality on a modem interface, logging every meaningful transition to the system log and persisting comparison state across reboots.
 
+> ⚠️ **Current revision (`mbc3-final-20260531-file-state+restore-guard`) has not yet been tested on hardware.** It was ported by reading the upstream `routeros_bundle` source — the file-based state persistence path and the new `mbc3-cleanup` script in particular have not been exercised against a live MikroTik. Verify on a router before relying on it in production.
+
 ---
 
 ## What it does
@@ -57,6 +59,7 @@ Every event log includes the full context snapshot: data class, duplex mode, pri
 | `mbc3-restore.rsc` | `mbc3-restore` | Loads persisted state on boot (runs once) |
 | `mbc3-install.rsc` | _(import only)_ | Bootstrap installer — registers scripts and schedulers |
 | `mbc3-setup.rsc` | `mbc3-setup` | Re-registers schedulers only; idempotent, no .rsc files needed |
+| `mbc3-cleanup.rsc` | `mbc3-cleanup` | Removes schedulers, scripts, state file, and `mbc3*` globals; idempotent |
 
 State is stored in a single flat file, `/file mbc3-state.txt`, generated and overwritten by `MobileBandChange3` at each designated exit point. The file is created on the first save — no installer step is required for it.
 
@@ -90,13 +93,23 @@ Globals persisted across reboots: `mbc3LastPrimary`, `mbc3LastCA`, `mbc3LastCARa
 
 ## Installation
 
-Upload the four `.rsc` files (`MobileBandChange3.rsc`, `mbc3-restore.rsc`, `mbc3-setup.rsc`, `mbc3-install.rsc`) to the router flash, then:
+Upload the five `.rsc` files (`MobileBandChange3.rsc`, `mbc3-restore.rsc`, `mbc3-setup.rsc`, `mbc3-cleanup.rsc`, `mbc3-install.rsc`) to the router flash, then:
 
 ```
 /import file-name=mbc3-install.rsc
 ```
 
-The installer registers the three scripts (`MobileBandChange3`, `mbc3-restore`, `mbc3-setup`) and adds the two scheduler entries. The state file `mbc3-state.txt` is created automatically on the first save. Source `.rsc` files can be removed from flash after install; everything runs from NVRAM scripts.
+The installer registers the four scripts (`MobileBandChange3`, `mbc3-restore`, `mbc3-setup`, `mbc3-cleanup`) and adds the two scheduler entries. The state file `mbc3-state.txt` is created automatically on the first save. Source `.rsc` files can be removed from flash after install; everything runs from NVRAM scripts.
+
+### Uninstall
+
+To remove everything the installer added — both schedulers, all four registered scripts, the state file `mbc3-state.txt`, all `mbc3*` globals from the script environment, and legacy artefacts (`mbc3-save`, `mbc3-state` script slot) from the pre-file-state architecture — run:
+
+```
+/system script run mbc3-cleanup
+```
+
+The cleanup script is idempotent and safe to re-run. To remove `mbc3-cleanup` itself afterwards: `/system script remove [find name=mbc3-cleanup]`.
 
 To update schedulers later without touching script source:
 

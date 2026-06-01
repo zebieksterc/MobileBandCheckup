@@ -6,6 +6,9 @@ Append-only. Never trim or delete entries. Newest first.
 
 ## 2026-06-01 00:00 UTC — mbc3-final-20260531-file-state+restore-guard
 
+> **Not yet tested on hardware.** This revision was ported by reading the routeros_bundle source; it has not been imported into a live MikroTik or exercised against a real LTE modem. Verify on a router before relying on it in production.
+
+- Added `mbc3-cleanup.rsc` / `mbc3-cleanup` registered script. Symmetric to `mbc3-install.rsc`: removes both schedulers, every script the installer registered, the state file `mbc3-state.txt`, every `mbc3*` global from `/system script environment`, and legacy `mbc3-save` script + `mbc3-state` script slot from the pre-file-state architecture. Idempotent; tolerates missing targets.
 - Backported the `file-state+restore-guard` revision of `MobileBandChange3` from `routeros_bundle` (bundle `routeros_bundle_b2.21_A2.0_S2.0_K2.21_D2.10_20260425_2245_wd5g-tdh`, helpers/mbc3-restore-state and scripts/MobileBandChange3, version tag `mbc3_r1|…|20260531|file-state+restore-guard|cs=a9a58787`).
 - **State persistence moved from `/system script source mbc3-state` to `/file mbc3-state.txt`.** State saves are now written inline by `MobileBandChange3` at each designated exit point via `/file print` + `/file set contents=`, with an `escapeStr` helper that escapes `\`, `"`, and `$` so any value survives a quoted `:set` round-trip.
 - **Deleted `mbc3-save.rsc`.** Saves are inline; there is no longer a separate save script.

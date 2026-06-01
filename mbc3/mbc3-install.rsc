@@ -10,15 +10,17 @@
 #   MobileBandChange3.rsc
 #   mbc3-restore.rsc
 #   mbc3-setup.rsc
+#   mbc3-cleanup.rsc
 #
 # What it does:
-#   1. Registers all three scripts in /system script
+#   1. Registers all four scripts in /system script
 #   2. Registers scheduler entries
 #
 # After install, source .rsc files can be removed — not needed at runtime.
 # State is stored in /file mbc3-state.txt, written inline by MobileBandChange3
 # on every state change and read back by mbc3-restore on boot.
 # To update schedulers later without touching scripts: /system script run mbc3-setup
+# To remove everything: /system script run mbc3-cleanup
 
 :local logPrefix "[mbc3-install] "
 
@@ -81,6 +83,8 @@ $upsertScript "MobileBandChange3" "MobileBandChange3.rsc" "LTE band change monit
 $upsertScript "mbc3-restore" "mbc3-restore.rsc" "LTE band change monitor - restore state on boot" "300"
 
 $upsertScript "mbc3-setup" "mbc3-setup.rsc" "LTE band change monitor - scheduler setup (safe to re-run)" "500"
+
+$upsertScript "mbc3-cleanup" "mbc3-cleanup.rsc" "LTE band change monitor - remove scripts, schedulers, state, and globals" "500"
 
 # State is stored in /file mbc3-state.txt. The file is created on the first
 # state save by MobileBandChange3 — no install step needed. mbc3-restore

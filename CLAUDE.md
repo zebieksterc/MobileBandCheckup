@@ -3,7 +3,7 @@
 <!-- LAST CHANGE — only this block is updated on each change; all policies below are fixed -->
 date: 2026-06-01 00:00 UTC
 version: mbc3-final-20260531-file-state+restore-guard
-change: Backported file-based state persistence and earlier restore-guard placement from routeros_bundle. State now lives in /file mbc3-state.txt; mbc3-save.rsc removed (saves are inline in MobileBandChange3); mbc3-restore reads via [:parse] under an allow-list guard.
+change: Backported file-based state persistence and earlier restore-guard placement from routeros_bundle, and added mbc3-cleanup.rsc (removes schedulers, scripts, state file, and all mbc3* globals from /system script environment). NOT YET TESTED ON HARDWARE — verify on a live router before relying on it.
 <!-- END LAST CHANGE -->
 
 ---
