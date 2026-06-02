@@ -106,6 +106,7 @@ The branch `claude/awesome-bohr-cMtgf` tried to factor the four duplicated inlin
 - 2026-06-02 — opened.
 - 2026-06-02 — implemented as `e1a91a0`; on-device test failed (empty state file).
 - 2026-06-02 — reverted as `b846183`; status **Done** (with the post-mortem as the deliverable; the safety fix from review item #3 kept separately).
+- 2026-06-02 — root cause **corrected** via upstream `routeros_bundle/PROPOSALS.md#P-0003` (commit `19734ae` of branch `claude/dazzling-fermat-cCKGV`). RouterOS function-value name resolution is **lexical**, not dynamic as concluded above. The dedup refactor reverted in `b846183` likely failed because it moved the shared helper **further from** the inner `do={…}` call site (out of its lexical scope), not because of dynamic-resolution semantics. Empirical evidence: upstream observed empty values for every bool/int line in `mbc3-state.txt` while the three helpers (`boolStr`/`intStr`/`escapeStr`) lived at script-top as siblings to `mbc3BuildState`, then populated values immediately after the helpers were moved **inside** `mbc3BuildState do={…}`. Same-script inlining works; cross-script extraction does not. See `P-0003` below for the corresponding backport entry, which is the actual fix.
 
 ---
 
@@ -134,3 +135,57 @@ Track the upstream proposal. If it lands, mark this **Done** and re-pull the bun
 ### History
 
 - 2026-06-02 — opened, status Pending (mirrors upstream P-0001).
+
+---
+
+## P-0003 — Inline `boolStr` / `intStr` / `escapeStr` inside `mbc3BuildState` (backport from upstream)
+
+**Status:** Pending (2026-06-02)
+**Author:** transitive from `routeros_bundle/PROPOSALS.md#P-0003` (commit `19734ae` of branch `claude/dazzling-fermat-cCKGV`).
+**Date opened:** 2026-06-02
+
+### Summary
+
+Upstream `routeros_bundle` discovered and fixed an empty-save bug in `scripts/MobileBandChange3.rsc`'s persisted-state writer. The three helpers (`boolStr` / `intStr` / `escapeStr`) had been declared as `:local` at script-top and called from inside `mbc3BuildState do={…}` via `[$boolStr …]` / `[$intStr …]` / `[$escapeStr …]`. On RouterOS 7.21.4 those calls silently returned nothing — every `:set` line in `mbc3-state.txt` for a bool or int variable came out with no value, and the escapeStr-wrapped string lines only appeared populated because of the surrounding `$q . […] . $q` literal-quote wrapper.
+
+The MBC `mbc3/MobileBandChange3.rsc` source traces to upstream b2.22 per PR #6's alignment claim and inherited the same buggy structure. Backport the fix: move the three helper bodies inside `mbc3BuildState`'s `do={…}` block; delete the outer definitions. Matches the pattern in `tdhT.rsc` and `wd5gT.rsc` (which already inline their `esc` copies).
+
+### Rationale
+
+Same as upstream P-0003 — the persisted state under the pre-fix code is functionally empty for all bool/int variables. Reads on restore set those globals to empty strings (typeof "str"); silent degradation rather than silent correctness. `mbc3HeartbeatEvery=""` in particular breaks the heartbeat arithmetic (empty in `($count % $every)` is undefined in RouterOS).
+
+Correcting the wrong `P-0001` conclusion is the second deliverable — without it the next session that looks at the save block may try the same dedup refactor again and be confused when the dynamic-scoping hypothesis is still on the books.
+
+### What changes
+
+Single file: `mbc3/MobileBandChange3.rsc`. Move the three helper bodies inside `mbc3BuildState do={…}`'s body, delete the outer definitions, and update the section comment to reflect the new placement and the cross-`:do{}` rationale. Preserve the MBC-specific `/file remove` length guards. Same shape as upstream commit `19734ae`.
+
+`PROPOSALS.md#P-0001` History gets one corrective entry (already added above).
+
+### Risk
+
+Low — same risk profile as upstream P-0003. Backwards/forwards compatible across save+restore because the restore-state allow-list accepts both empty and populated bare scalars; the first save under new code rewrites the file with populated values, healing the state in one cycle.
+
+`mbc3QualityMonitor` was previously stuck at `""` (falsy str) so its branch was dead code. After this fix it will be honoured when set true. Same caveat as upstream.
+
+### Test plan
+
+| Layer | Action | Expected |
+|---|---|---|
+| Static | `grep -nE '^:local (boolStr\|intStr\|escapeStr) do=' mbc3/MobileBandChange3.rsc` | empty — none at script-top |
+| Static | `grep -nE '^    :local (boolStr\|intStr\|escapeStr) do=' mbc3/MobileBandChange3.rsc` | three matches — all inside `mbc3BuildState` |
+| On-device | Run `mbc3-cleanup` with `mbc3CleanupCommit=true`, then `/system script run mbc3-install`, then `/system script run MobileBandChange3` | New `mbc3-state.txt` has populated values: `mbc3Debug false`, `mbc3HeartbeatEvery 60`, `mbc3LastNrActive true`, `mbc3PendingLRsrpCount 0`, etc. |
+| On-device | Reboot or `/system script run mbc3-restore-state` after a save | Restored globals have correct types: `[:typeof $mbc3HeartbeatEvery] = "num"`, not `"str"` |
+
+### Related work
+
+- Upstream proposal: `routeros_bundle/PROPOSALS.md#P-0003`, commit `19734ae`, branch `claude/dazzling-fermat-cCKGV`.
+- Source brief: `routeros_bundle/audit/p0003-mbc-backport-brief.md`.
+
+### Decision asked
+
+Approve / defer / decline. Same decision pattern as upstream P-0003.
+
+### History
+
+- 2026-06-02 — opened, status Pending. Backport of upstream `routeros_bundle/PROPOSALS.md#P-0003`. Empirical evidence collected upstream; this entry tracks the downstream port.

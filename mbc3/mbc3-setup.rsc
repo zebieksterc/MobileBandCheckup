@@ -1,5 +1,5 @@
 # mbc3-setup
-# revision: mbc3-final-20260602-save-helper-revert
+# revision: mbc3-final-20260602-p0003-inline-helpers
 #
 # Registers or updates scheduler entries only. Does NOT touch script source.
 # Safe to run at any time — idempotent, no source .rsc files required.

@@ -1,5 +1,5 @@
 # mbc3-install
-# revision: mbc3-final-20260602-save-helper-revert
+# revision: mbc3-final-20260602-p0003-inline-helpers
 #
 # Bootstrap installer. Run via:
 #   /import file-name=mbc3-install.rsc
