@@ -4,13 +4,21 @@ Append-only. Never trim or delete entries. Newest first.
 
 ---
 
+## 2026-06-02 14:00 UTC — mbc3-final-20260602-save-helper-revert
+
+**Reverted the `mbc3SaveState` function-value refactor from the earlier `save-helper` commit.** On-router test produced an empty `mbc3-state.txt` after a save run (`[:len [/file get … contents]] = 0`) and the `state save: end marker missing after write` warning. Root cause: RouterOS function-value name resolution is dynamic, not lexical. When `mbc3SaveState` (a function-value) called `[$mbc3BuildState]`, and `mbc3BuildState` in turn tried to resolve `[$boolStr …]` / `[$intStr …]` / `[$escapeStr …]`, the inner lookup happened in the caller's (`mbc3SaveState`'s) scope rather than the script's top-level scope where the helpers are `:local`-defined. The helper calls returned nothing, the string concatenation short-circuited, and `[$mbc3BuildState]` returned an empty string. The save block then dutifully wrote that empty string to disk with `/file set contents=""`. The bundle's source layout — calling `[$mbc3BuildState]` inline from script top, never from inside another function-value — sidesteps this exactly because the inner helpers are visible to dynamic-scope lookup from script top.
+
+- **Restored the four inline state-save blocks** at each exit point in `MobileBandChange3.rsc` (iface-down, monitor-invalid, init, end-of-script). Same code as the bundle's `scripts/MobileBandChange3.rsc`.
+- **Kept the `/file remove` length guard** (review item #3) at all four sites: `:if ([:len [/file find name=$sf]] > 0) do={ /file remove [find name=$sf] }`. Pure defensive improvement, no scoping issue, silences the "no such item" no-op warning on a fresh install.
+- The runtime files are now byte-for-byte equivalent on executable lines to the bundle's tested sources except for those four guard wrappers. README, MANUAL.html, and the testing diff updated to describe this precisely.
+
 ## 2026-06-02 12:00 UTC — mbc3-final-20260602-save-helper
 
 Code-review follow-ups (two items from the branch review):
 
-- **Factored the duplicated state-save block into a single shared function-value `mbc3SaveState`** in `MobileBandChange3.rsc`. Previously the same `:do { … } on-error={ … }` block was duplicated four times — once per exit point (iface-down, monitor-invalid, init, end-of-script). Each save site is now a one-line call `[$mbc3SaveState $logPrefix]`. Eliminates the four-place change burden when the save logic evolves (file name, marker, retry policy, log message). Script dropped from ~1037 lines to ~980; behaviour unchanged.
-- **Guarded `/file remove [find name=$sf]` with a `[:len [/file find name=$sf]] > 0` length check** so the first save on a fresh install never enters the `:do` no-such-item path. Eliminates a spurious "inline state save failed" warning that could otherwise show up on RouterOS builds where `/file remove [find]` on an empty find errors instead of silently no-op'ing.
-- **Reframed the hardware-test equivalence claim** in README.md and MANUAL.html: `MobileBandChange3.rsc` is no longer byte-for-byte equivalent to the bundle's `scripts/MobileBandChange3.rsc` because of the dedup, but it makes the same RouterOS API calls in the same order with the same arguments and the same retry-on-failure behaviour. `mbc3-restore-state.rsc` remains byte-for-byte equivalent on executable lines to the bundle's `helpers/mbc3-restore-state.rsc`. MANUAL.html's smoke-test now diffs the restore script directly and verifies the main script by checking the function-value inventory and the persisted-global set.
+- **Factored the duplicated state-save block into a single shared function-value `mbc3SaveState`** in `MobileBandChange3.rsc`. Previously the same `:do { … } on-error={ … }` block was duplicated four times — once per exit point (iface-down, monitor-invalid, init, end-of-script). Each save site is now a one-line call `[$mbc3SaveState $logPrefix]`. **Reverted in the 14:00 UTC commit above — see that entry for the failure mode.**
+- **Guarded `/file remove [find name=$sf]` with a `[:len [/file find name=$sf]] > 0` length check** so the first save on a fresh install never enters the `:do` no-such-item path. Eliminates a spurious "inline state save failed" warning that could otherwise show up on RouterOS builds where `/file remove [find]` on an empty find errors instead of silently no-op'ing. *(This part was kept.)*
+- **Reframed the hardware-test equivalence claim** in README.md and MANUAL.html. *(Reverted to the original wording in the 14:00 UTC commit since the refactor that caused the divergence is gone.)*
 
 ## 2026-06-02 00:00 UTC — mbc3-final-20260601-bundle-aligned
 

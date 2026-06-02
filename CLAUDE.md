@@ -1,9 +1,9 @@
 # MobileBandCheckup — Project Policies
 
 <!-- LAST CHANGE — only this block is updated on each change; all policies below are fixed -->
-date: 2026-06-02 12:00 UTC
-version: mbc3-final-20260602-save-helper
-change: Code-review follow-ups. Factored the inline state-save block (duplicated four times in MobileBandChange3.rsc, one per exit point) into a single shared function-value mbc3SaveState; each save site is now a one-line call. Guarded /file remove with a length check so the first save on a fresh install never logs a spurious "no such item" warning. README, MANUAL.html, and HISTORY.md updated to reframe the hardware-test equivalence claim: MobileBandChange3.rsc no longer byte-for-byte equivalent to the bundle's source, but performs the same RouterOS API calls in the same order — same behaviour, less duplication.
+date: 2026-06-02 14:00 UTC
+version: mbc3-final-20260602-save-helper-revert
+change: Reverted the mbc3SaveState function-value refactor — on-router test wrote an empty mbc3-state.txt because RouterOS function-value name resolution is dynamic: when mbc3SaveState called mbc3BuildState, mbc3BuildState's inner helper-calls (boolStr/intStr/escapeStr) looked up names in mbc3SaveState's scope instead of the script's top-level scope, returning empty, so the payload was empty. Restored the four inline save blocks (matching the bundle exactly), kept the /file remove length guard from review item #3.
 <!-- END LAST CHANGE -->
 
 ---
