@@ -140,7 +140,7 @@ Track the upstream proposal. If it lands, mark this **Done** and re-pull the bun
 
 ## P-0003 — Inline `boolStr` / `intStr` / `escapeStr` inside `mbc3BuildState` (backport from upstream)
 
-**Status:** Pending (2026-06-02)
+**Status:** Done (2026-06-02)
 **Author:** transitive from `routeros_bundle/PROPOSALS.md#P-0003` (commit `19734ae` of branch `claude/dazzling-fermat-cCKGV`).
 **Date opened:** 2026-06-02
 
@@ -189,3 +189,4 @@ Approve / defer / decline. Same decision pattern as upstream P-0003.
 ### History
 
 - 2026-06-02 — opened, status Pending. Backport of upstream `routeros_bundle/PROPOSALS.md#P-0003`. Empirical evidence collected upstream; this entry tracks the downstream port.
+- 2026-06-02 — merged as `5a35359` via PR #7; status **Done**. Helpers now inline inside `mbc3BuildState do={…}`; the empty-save bug is fixed in `main`.
