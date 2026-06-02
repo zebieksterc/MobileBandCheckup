@@ -112,7 +112,7 @@ The branch `claude/awesome-bohr-cMtgf` tried to factor the four duplicated inlin
 
 ## P-0002 — Backport `/file remove` length guard upstream to `routeros_bundle`
 
-**Status:** Pending (2026-06-02)
+**Status:** Done (2026-06-02)
 **Author:** transitive from MobileBandCheckup code review (`4d22b92d-reviewh.txt`, review item #3)
 **Date opened:** 2026-06-02
 
@@ -135,6 +135,7 @@ Track the upstream proposal. If it lands, mark this **Done** and re-pull the bun
 ### History
 
 - 2026-06-02 — opened, status Pending (mirrors upstream P-0001).
+- 2026-06-02 — upstream implemented as `routeros_bundle` commit `1a5b4bd` (b2.24, on branch `claude/dazzling-fermat-cCKGV`): seven length-guard wraps across `scripts/MobileBandChange3.rsc` (×4), `scripts/tdhT.rsc` (×1), `scripts/wd5gT.rsc` (×2); content stamps refreshed (`wd5gT 1efb7d51→f8580b16`, `tdhT d5062e4c→94d8ce39`, `MobileBandChange3 5190ed83→7d5983a4`); bundle gate (validate / restore-guard / scan_secrets / check_rules) PASS. Executable-line diff between this repo's `mbc3/MobileBandChange3.rsc` and the bundle's `scripts/MobileBandChange3.rsc` on that branch is now empty — the success condition from the original Decision asked is met. Status **Done**. (Note: as of this entry, the bundle branch carrying the fix has not yet been merged to bundle `main`; the implementation exists and is gated-green, so for the purposes of this tracker it has "landed". When bundle `main` catches up, no further action is needed here.)
 
 ---
 
