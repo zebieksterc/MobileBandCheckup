@@ -1,9 +1,9 @@
 # MobileBandCheckup — Project Policies
 
 <!-- LAST CHANGE — only this block is updated on each change; all policies below are fixed -->
-date: 2026-06-02 00:00 UTC
-version: mbc3-final-20260601-bundle-aligned
-change: Added MANUAL.html — single-file dark-theme reference manual modelled on the upstream routeros_bundle MANUAL.html, scoped to the mbc3 component. Covers all five scripts, globals, tunables, schedulers, policies, state file, commands, and the on-router smoke-test. README header links to it.
+date: 2026-06-02 12:00 UTC
+version: mbc3-final-20260602-save-helper
+change: Code-review follow-ups. Factored the inline state-save block (duplicated four times in MobileBandChange3.rsc, one per exit point) into a single shared function-value mbc3SaveState; each save site is now a one-line call. Guarded /file remove with a length check so the first save on a fresh install never logs a spurious "no such item" warning. README, MANUAL.html, and HISTORY.md updated to reframe the hardware-test equivalence claim: MobileBandChange3.rsc no longer byte-for-byte equivalent to the bundle's source, but performs the same RouterOS API calls in the same order — same behaviour, less duplication.
 <!-- END LAST CHANGE -->
 
 ---

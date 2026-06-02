@@ -1,5 +1,5 @@
 # mbc3-setup
-# revision: mbc3-final-20260601-bundle-aligned
+# revision: mbc3-final-20260602-save-helper
 #
 # Registers or updates scheduler entries only. Does NOT touch script source.
 # Safe to run at any time — idempotent, no source .rsc files required.

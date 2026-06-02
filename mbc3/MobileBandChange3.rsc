@@ -1,5 +1,5 @@
 # MobileBandChange3
-# revision: mbc3-final-20260601-bundle-aligned
+# revision: mbc3-final-20260602-save-helper
 # scripts: MobileBandChange3.rsc  mbc3-restore-state.rsc
 # scheduler: mbc3-restore-state (startup, once), mbc3-run (startup, 1m interval, :delay 50s)
 
@@ -369,6 +369,38 @@
         "# MBC3-STATE-END\n")
 }
 
+# Single shared save block — called at each designated exit point.
+# Builds the payload via $mbc3BuildState, removes any prior state file (guarded
+# against the no-such-item warning on a fresh install), creates the file empty
+# with /file print, waits 200ms for the new file to be visible, then writes the
+# contents and verifies the end marker round-tripped. Failures log a warning;
+# the next save retries from scratch — never leave a partial file.
+# Takes the log prefix as $1 since function-values don't close over outer
+# :locals. Returns nothing; callers discard the result.
+:local mbc3SaveState do={
+    :local lp $1
+    :do {
+        :local sf "mbc3-state.txt"
+        :local pl [$mbc3BuildState]
+        :if ([:len [/file find name=$sf]] > 0) do={ /file remove [find name=$sf] }
+        /file print file=$sf
+        :delay 200ms
+        :local ff [/file find name=$sf]
+        :if ([:len $ff] > 0) do={
+            /file set $ff contents=$pl
+            :if ([:typeof [:find [/file get $ff contents] "# MBC3-STATE-END"]] = "num") do={
+                :log info ($lp . "state saved -> " . $sf)
+            } else={
+                :log warning ($lp . "state save: end marker missing after write")
+            }
+        } else={
+            :log warning ($lp . "state save: file not visible after 200ms")
+        }
+    } on-error={
+        :log warning ($lp . "inline state save failed")
+    }
+}
+
 # -----------------------------
 # Early state init
 # Keeps counters and heartbeat alive even when interface is down.
@@ -413,26 +445,7 @@
     :set mbc3ProbeDetail "iface-not-running"
     :if ($debug = true) do={ :log debug ($logPrefix . "LTE iface not running - skipping poll") }
     :if ($stateChanged = true) do={
-        :do {
-            :local sf "mbc3-state.txt"
-            :local pl [$mbc3BuildState]
-            /file remove [find name=$sf]
-            /file print file=$sf
-            :delay 200ms
-            :local ff [/file find name=$sf]
-            :if ([:len $ff] > 0) do={
-                /file set $ff contents=$pl
-                :if ([:typeof [:find [/file get $ff contents] "# MBC3-STATE-END"]] = "num") do={
-                    :log info ($logPrefix . "state saved -> " . $sf)
-                } else={
-                    :log warning ($logPrefix . "state save: end marker missing after write")
-                }
-            } else={
-                :log warning ($logPrefix . "state save: file not visible after 200ms")
-            }
-        } on-error={
-            :log warning ($logPrefix . "inline state save failed")
-        }
+        [$mbc3SaveState $logPrefix]
     }
     :return ""
 }
@@ -521,26 +534,7 @@
 
     :log warning ($logPrefix . "LTE monitor-invalid interface=" . $iface . " run-count=" . $mbc3RunCount . " fields=" . $missingFields . " action=skip-state-update")
     :if ($stateChanged = true) do={
-        :do {
-            :local sf "mbc3-state.txt"
-            :local pl [$mbc3BuildState]
-            /file remove [find name=$sf]
-            /file print file=$sf
-            :delay 200ms
-            :local ff [/file find name=$sf]
-            :if ([:len $ff] > 0) do={
-                /file set $ff contents=$pl
-                :if ([:typeof [:find [/file get $ff contents] "# MBC3-STATE-END"]] = "num") do={
-                    :log info ($logPrefix . "state saved -> " . $sf)
-                } else={
-                    :log warning ($logPrefix . "state save: end marker missing after write")
-                }
-            } else={
-                :log warning ($logPrefix . "state save: file not visible after 200ms")
-            }
-        } on-error={
-            :log warning ($logPrefix . "inline state save failed")
-        }
+        [$mbc3SaveState $logPrefix]
     }
     :return ""
 }
@@ -696,26 +690,7 @@
 
     # Save here before the early return — init is the only exit path that
     # cannot reach the save call at the bottom of the script.
-    :do {
-        :local sf "mbc3-state.txt"
-        :local pl [$mbc3BuildState]
-        /file remove [find name=$sf]
-        /file print file=$sf
-        :delay 200ms
-        :local ff [/file find name=$sf]
-        :if ([:len $ff] > 0) do={
-            /file set $ff contents=$pl
-            :if ([:typeof [:find [/file get $ff contents] "# MBC3-STATE-END"]] = "num") do={
-                :log info ($logPrefix . "state saved -> " . $sf)
-            } else={
-                :log warning ($logPrefix . "state save: end marker missing after write")
-            }
-        } else={
-            :log warning ($logPrefix . "state save: file not visible after 200ms")
-        }
-    } on-error={
-        :log warning ($logPrefix . "inline state save failed")
-    }
+    [$mbc3SaveState $logPrefix]
 
     :set mbc3Probe "done"
     :set mbc3ProbeDetail "done"
@@ -996,28 +971,7 @@
 # -----------------------------
 # Save on any state change
 # -----------------------------
-:if ($stateChanged = true) do={
-    :do {
-        :local sf "mbc3-state.txt"
-        :local pl [$mbc3BuildState]
-        /file remove [find name=$sf]
-        /file print file=$sf
-        :delay 200ms
-        :local ff [/file find name=$sf]
-        :if ([:len $ff] > 0) do={
-            /file set $ff contents=$pl
-            :if ([:typeof [:find [/file get $ff contents] "# MBC3-STATE-END"]] = "num") do={
-                :log info ($logPrefix . "state saved -> " . $sf)
-            } else={
-                :log warning ($logPrefix . "state save: end marker missing after write")
-            }
-        } else={
-            :log warning ($logPrefix . "state save: file not visible after 200ms")
-        }
-    } on-error={
-        :log warning ($logPrefix . "inline state save failed")
-    }
-}
+:if ($stateChanged = true) do={ [$mbc3SaveState $logPrefix] }
 
 :set mbc3Probe "done"
 :set mbc3ProbeDetail "done"

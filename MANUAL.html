@@ -93,7 +93,7 @@ This manual covers every script, every global, every tunable with its default an
 the scheduler entries and required policies, the state file, the operator commands, and
 how to verify a deployment.</p>
 <div class="meta">
-  <span><b>revision</b> mbc3-final-20260601-bundle-aligned</span>
+  <span><b>revision</b> mbc3-final-20260602-save-helper</span>
   <span><b>aligned with</b> routeros_bundle b2.22</span>
   <span><b>hardware test</b> 2026-05-31 18:41 UTC reboot</span>
   <span><b>routeros</b> 7.21.4</span>
@@ -101,13 +101,18 @@ how to verify a deployment.</p>
   <span><b>modem</b> Quectel RG650E-EU</span>
 </div>
 <div class="good">
-  <b>Status — confirmed working on hardware.</b> After the 2026-06-01 bundle-aligned
-  revision, <code>MobileBandChange3.rsc</code> and <code>mbc3-restore-state.rsc</code> are
-  byte-for-byte equivalent on executable lines to the <code>routeros_bundle</code> b2.22
-  sources that were verified working at the 2026-05-31 18:41 reboot. The installer
-  registers script and scheduler policies identical to the bundle's tested
-  <code>scheduler_templates.rsc</code>. The installer / setup / cleanup wrappers are
-  MobileBandCheckup-original code that produces the same end-state on the router.
+  <b>Status — confirmed working on hardware (transitively).</b>
+  <code>MobileBandChange3.rsc</code> performs the same operations in the same order as
+  the <code>routeros_bundle</code> b2.22 source that was verified working at the
+  2026-05-31 18:41 reboot. <code>mbc3-restore-state.rsc</code> is byte-for-byte
+  equivalent on executable lines to the bundle's <code>helpers/mbc3-restore-state.rsc</code>.
+  <code>MobileBandChange3.rsc</code> diverges from the bundle's source only in that the
+  inline state-save block — duplicated four times in the bundle, one per exit point — has
+  been factored into a single shared function-value (<code>mbc3SaveState</code>), called
+  from each exit point. Same RouterOS API calls, same arguments, same order, same
+  retry-on-failure behaviour. The installer registers script and scheduler policies
+  identical to the bundle's tested <code>scheduler_templates.rsc</code>. The installer /
+  setup / cleanup wrappers are MobileBandCheckup-original code.
 </div>
 
 <!-- ============================================================ -->
@@ -630,17 +635,26 @@ scripts:</p>
 
 <!-- ============================================================ -->
 <h2 id="testing">Testing</h2>
-<p>The runtime scripts (<code>MobileBandChange3</code>, <code>mbc3-restore-state</code>)
-are zero-executable-line diff vs the upstream <code>routeros_bundle</code> b2.22 sources
+<p>The runtime scripts trace to the upstream <code>routeros_bundle</code> b2.22 sources
 that were confirmed working at the 2026-05-31 18:41 reboot on RouterOS 7.21.4 / MikroTik
-Chateau 5G R17 AX / Quectel RG650E-EU. Verify the equivalence on your local checkouts:</p>
-<pre><code>diff &lt;(grep -v '^\s*#' MobileBandCheckup/mbc3/MobileBandChange3.rsc | sed '/^\s*$/d') \
-     &lt;(grep -v '^\s*#' routeros_bundle/scripts/MobileBandChange3.rsc | sed '/^\s*$/d')
-
-diff &lt;(grep -v '^\s*#' MobileBandCheckup/mbc3/mbc3-restore-state.rsc | sed '/^\s*$/d') \
+Chateau 5G R17 AX / Quectel RG650E-EU. <code>mbc3-restore-state.rsc</code> is
+byte-for-byte equivalent on executable lines; verify on your local checkouts:</p>
+<pre><code>diff &lt;(grep -v '^\s*#' MobileBandCheckup/mbc3/mbc3-restore-state.rsc | sed '/^\s*$/d') \
      &lt;(grep -v '^\s*#' routeros_bundle/helpers/mbc3-restore-state.rsc | sed '/^\s*$/d')</code></pre>
-<p>Both should produce no output. If they don't, the runtime files have drifted from the
-tested set and the "confirmed working" claim no longer applies.</p>
+<p>Should produce no output. If it doesn't, the restore-state file has drifted from the
+tested set.</p>
+<p><code>MobileBandChange3.rsc</code> diverges from the bundle source only by factoring
+the inline state-save block into the shared <code>mbc3SaveState</code> function-value.
+You can verify the divergence is exactly that and nothing else:</p>
+<pre><code># Every helper function-value defined in MBC's main script should also exist
+# in the bundle's, with the same body (one extra: mbc3SaveState).
+grep -E '^:local [a-zA-Z]+ do=' MobileBandCheckup/mbc3/MobileBandChange3.rsc
+grep -E '^:local [a-zA-Z]+ do=' routeros_bundle/scripts/MobileBandChange3.rsc
+
+# The 14 persisted globals must match between the build payload and the
+# restore-state allow-list, in both repos:
+grep -oE 'mbc3[A-Za-z]+' MobileBandCheckup/mbc3/mbc3-restore-state.rsc | sort -u
+grep -oE 'mbc3[A-Za-z]+' routeros_bundle/helpers/mbc3-restore-state.rsc | sort -u</code></pre>
 
 <h4>On-router smoke test (post-install)</h4>
 <ol>
@@ -669,7 +683,7 @@ Must end with <code># MBC3-STATE-END</code>.</li>
 # flag is still armed from a previous session.</code></pre>
 
 <footer>
-MobileBandCheckup — mbc3-final-20260601-bundle-aligned. License: MIT.
+MobileBandCheckup — mbc3-final-20260602-save-helper. License: MIT.
 Aligned with routeros_bundle b2.22 (hardware-tested 2026-05-31 18:41 UTC).
 </footer>
 

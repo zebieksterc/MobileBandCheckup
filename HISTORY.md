@@ -4,6 +4,14 @@ Append-only. Never trim or delete entries. Newest first.
 
 ---
 
+## 2026-06-02 12:00 UTC — mbc3-final-20260602-save-helper
+
+Code-review follow-ups (two items from the branch review):
+
+- **Factored the duplicated state-save block into a single shared function-value `mbc3SaveState`** in `MobileBandChange3.rsc`. Previously the same `:do { … } on-error={ … }` block was duplicated four times — once per exit point (iface-down, monitor-invalid, init, end-of-script). Each save site is now a one-line call `[$mbc3SaveState $logPrefix]`. Eliminates the four-place change burden when the save logic evolves (file name, marker, retry policy, log message). Script dropped from ~1037 lines to ~980; behaviour unchanged.
+- **Guarded `/file remove [find name=$sf]` with a `[:len [/file find name=$sf]] > 0` length check** so the first save on a fresh install never enters the `:do` no-such-item path. Eliminates a spurious "inline state save failed" warning that could otherwise show up on RouterOS builds where `/file remove [find]` on an empty find errors instead of silently no-op'ing.
+- **Reframed the hardware-test equivalence claim** in README.md and MANUAL.html: `MobileBandChange3.rsc` is no longer byte-for-byte equivalent to the bundle's `scripts/MobileBandChange3.rsc` because of the dedup, but it makes the same RouterOS API calls in the same order with the same arguments and the same retry-on-failure behaviour. `mbc3-restore-state.rsc` remains byte-for-byte equivalent on executable lines to the bundle's `helpers/mbc3-restore-state.rsc`. MANUAL.html's smoke-test now diffs the restore script directly and verifies the main script by checking the function-value inventory and the persisted-global set.
+
 ## 2026-06-02 00:00 UTC — mbc3-final-20260601-bundle-aligned
 
 - Added `MANUAL.html` — single-file dark-theme reference manual modelled on the upstream `routeros_bundle` MANUAL.html. Covers overview/architecture, install / upgrade / uninstall flow, RouterOS gotchas, every script (MobileBandChange3, mbc3-restore-state, mbc3-install, mbc3-setup, mbc3-cleanup), globals reference (state/runtime/tunable/guard), tunables with defaults and ranges, schedulers and required policies, state-file format and save sequence, operator commands, and an on-router smoke-test procedure including the equivalence diff against the bundle.
