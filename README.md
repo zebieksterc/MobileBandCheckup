@@ -164,3 +164,9 @@ Set before (or after) the first run. These are persisted across reboots once the
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+## Proposals
+
+Open / past proposed changes to this repo — accepted, deferred, declined, done, reverted — are tracked in **[`PROPOSALS.md`](PROPOSALS.md)**. New proposed changes (script behaviour, install/setup/cleanup flow, state-file design, alignment with the upstream `routeros_bundle`) should be drafted there first with the required fields and a Status, so the decision and reasoning survive past the conversation that produced it.

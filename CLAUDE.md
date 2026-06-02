@@ -1,9 +1,9 @@
 # MobileBandCheckup — Project Policies
 
 <!-- LAST CHANGE — only this block is updated on each change; all policies below are fixed -->
-date: 2026-06-02 14:00 UTC
+date: 2026-06-02 16:00 UTC
 version: mbc3-final-20260602-save-helper-revert
-change: Reverted the mbc3SaveState function-value refactor — on-router test wrote an empty mbc3-state.txt because RouterOS function-value name resolution is dynamic: when mbc3SaveState called mbc3BuildState, mbc3BuildState's inner helper-calls (boolStr/intStr/escapeStr) looked up names in mbc3SaveState's scope instead of the script's top-level scope, returning empty, so the payload was empty. Restored the four inline save blocks (matching the bundle exactly), kept the /file remove length guard from review item #3.
+change: Added PROPOSALS.md as the permanent append-only registry of proposed changes to this repo (status lifecycle, required fields, template, sequential P-NNNN numbering). Two initial entries: P-0001 (Done — mbc3SaveState refactor post-mortem) and P-0002 (Pending — upstream routeros_bundle adoption of the /file remove length guard). README footer linked. Mirrors the routeros_bundle/PROPOSALS.md convention so both repos use the same proposal format.
 <!-- END LAST CHANGE -->
 
 ---

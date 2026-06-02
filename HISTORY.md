@@ -4,6 +4,10 @@ Append-only. Never trim or delete entries. Newest first.
 
 ---
 
+## 2026-06-02 16:00 UTC — mbc3-final-20260602-save-helper-revert
+
+- Added `PROPOSALS.md` — permanent append-only registry of proposed changes to this repo with explicit status lifecycle (Draft → Pending → Accepted → Done/Reverted/Deferred/Declined/Superseded), required fields per proposal, copy-paste template, sequential `P-NNNN` numbering. Two initial entries: `P-0001` (Done — the `mbc3SaveState` refactor post-mortem) and `P-0002` (Pending — track upstream `routeros_bundle` adoption of the `/file remove` length guard). README footer links to it. Mirrors the upstream `routeros_bundle/PROPOSALS.md` convention.
+
 ## 2026-06-02 14:00 UTC — mbc3-final-20260602-save-helper-revert
 
 **Reverted the `mbc3SaveState` function-value refactor from the earlier `save-helper` commit.** On-router test produced an empty `mbc3-state.txt` after a save run (`[:len [/file get … contents]] = 0`) and the `state save: end marker missing after write` warning. Root cause: RouterOS function-value name resolution is dynamic, not lexical. When `mbc3SaveState` (a function-value) called `[$mbc3BuildState]`, and `mbc3BuildState` in turn tried to resolve `[$boolStr …]` / `[$intStr …]` / `[$escapeStr …]`, the inner lookup happened in the caller's (`mbc3SaveState`'s) scope rather than the script's top-level scope where the helpers are `:local`-defined. The helper calls returned nothing, the string concatenation short-circuited, and `[$mbc3BuildState]` returned an empty string. The save block then dutifully wrote that empty string to disk with `/file set contents=""`. The bundle's source layout — calling `[$mbc3BuildState]` inline from script top, never from inside another function-value — sidesteps this exactly because the inner helpers are visible to dynamic-scope lookup from script top.
