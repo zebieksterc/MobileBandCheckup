@@ -1,7 +1,7 @@
 # MobileBandChange3
-# revision: mbc3-final-20260531-file-state+restore-guard
-# scripts: MobileBandChange3.rsc  mbc3-restore.rsc
-# scheduler: mbc3-restore (startup, once), mbc3-main (startup, 1m interval)
+# revision: mbc3-final-20260601-bundle-aligned
+# scripts: MobileBandChange3.rsc  mbc3-restore-state.rsc
+# scheduler: mbc3-restore-state (startup, once), mbc3-run (startup, 1m interval, :delay 50s)
 
 :global mbc3LastPrimary
 :global mbc3LastCA
@@ -33,8 +33,8 @@
 :global mbc3LastRunProbeDetail
 :global mbc3LastRunFailProbe
 
-# Set by mbc3-restore on every boot. Checked here to guard against the
-# scheduler race where mbc3-main fires before mbc3-restore has completed.
+# Set by mbc3-restore-state on every boot. Checked here to guard against the
+# scheduler race where mbc3-run fires before mbc3-restore-state has completed.
 :global mbc3RestoreDone
 
 :local iface "lte1"
@@ -48,17 +48,17 @@
 
 # -----------------------------
 # Startup restore guard
-# If mbc3-restore has not yet run this boot (mbc3RestoreDone is "nothing"),
+# If mbc3-restore-state has not yet run this boot (mbc3RestoreDone is "nothing"),
 # run it inline BEFORE reading any persisted state below (options + Last*/Pending*
-# globals). Eliminates the scheduler race where mbc3-main fires before
-# mbc3-restore; without this, the first post-boot run would read defaults
-# instead of restored settings. Safe to call multiple times — mbc3-restore is
-# idempotent. mbc3RestoreDone is not persisted; it clears on every reboot so
-# this guard fires exactly once per boot on the first mbc3-main run that wins
-# the race.
+# globals). Eliminates the scheduler race where mbc3-run fires before
+# mbc3-restore-state; without this, the first post-boot run would read defaults
+# instead of restored settings. Safe to call multiple times — mbc3-restore-state
+# is idempotent. mbc3RestoreDone is not persisted; it clears on every reboot so
+# this guard fires exactly once per boot on the first mbc3-run that wins the
+# race.
 # -----------------------------
 :if ([:typeof $mbc3RestoreDone] = "nothing") do={
-    /system script run mbc3-restore
+    /system script run mbc3-restore-state
 }
 
 # -----------------------------
@@ -296,9 +296,9 @@
 # -----------------------------
 # State persistence helpers (inline, file-based)
 # Save writes mbc3-state.txt as parse-replay code (markers + :global/:set);
-# mbc3-restore reads it back via [:parse] under an allow-list guard. Values are
-# quoted+escaped so any content (";", quotes, spaces, $) survives. No external
-# mbc3-save script.
+# mbc3-restore-state reads it back via [:parse] under an allow-list guard.
+# Values are quoted+escaped so any content (";", quotes, spaces, $) survives.
+# No external mbc3-save script.
 # -----------------------------
 :local boolStr do={
     :if ([:typeof $1] = "nothing") do={ :return "false" }
@@ -313,7 +313,7 @@
 }
 
 # escapeStr: escape \ " $ so a value survives a quoted :set re-parsed on
-# restore. Covered by mbc3-restore's allow-list guard which rejects any
+# restore. Covered by mbc3-restore-state's allow-list guard which rejects any
 # unescaped $ in a saved value.
 :local escapeStr do={
     :if ([:typeof $1] = "nothing") do={ :return "" }

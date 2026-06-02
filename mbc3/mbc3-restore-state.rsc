@@ -1,5 +1,5 @@
-# mbc3-restore
-# revision: mbc3-final-20260531-file-state+restore-guard
+# mbc3-restore-state
+# revision: mbc3-final-20260601-bundle-aligned
 # Purpose:
 #   Restore MobileBandChange3 persisted globals from /file mbc3-state.txt.
 #
@@ -13,7 +13,7 @@
 
 :global mbc3RestoreDone
 
-:local tag "[mbc3-restore] "
+:local tag "[mbc3-restore-state] "
 :local stateFile "mbc3-state.txt"
 :local markerStart "# MBC3-STATE-V1"
 :local markerEnd "# MBC3-STATE-END"

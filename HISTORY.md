@@ -4,6 +4,18 @@ Append-only. Never trim or delete entries. Newest first.
 
 ---
 
+## 2026-06-01 12:00 UTC — mbc3-final-20260601-bundle-aligned
+
+> ✅ **Tested transitively via routeros_bundle b2.22.** After this change, `MobileBandChange3.rsc` and `mbc3-restore-state.rsc` are byte-for-byte equivalent on executable lines (comments and headers excepted) to the routeros_bundle b2.22 sources confirmed working at the 2026-05-31 18:41 reboot on RouterOS 7.21.4 / MikroTik Chateau 5G R17 AX / Quectel RG650E-EU. The installer registers the same script policies and scheduler policies the bundle's `scheduler_templates.rsc` uses on the live router.
+
+- **Renamed `mbc3-restore.rsc` → `mbc3-restore-state.rsc`** (and the registered script object name to match). The inline restore-guard inside `MobileBandChange3.rsc` now calls `/system script run mbc3-restore-state`. `:local tag` updated to `[mbc3-restore-state]`.
+- **Renamed the periodic scheduler `mbc3-main` → `mbc3-run`** with on-event `:delay 50s; /system script run MobileBandChange3` (50-second startup stagger, mirroring the bundle's tested template).
+- **Added explicit `policy=` to every script and scheduler registration** in `mbc3-install.rsc` and `mbc3-setup.rsc`. `MobileBandChange3` and `mbc3-run`: `ftp,read,write,policy,test`. `mbc3-restore-state` and its scheduler: `ftp,read,write,policy`. `mbc3-setup`: `read,write,policy`. `mbc3-cleanup`: `ftp,read,write,policy`. Without these RouterOS refuses with "not enough permissions to run script".
+- **Legacy migration on install/setup:** the old `mbc3-restore` script and `mbc3-main` scheduler are removed if present, so upgraders end up with a single, clean set of names.
+- **`mbc3-cleanup.rsc` is now dry-run by default** (matching the bundle's `bundle-reset-state` safety pattern). Set `mbc3CleanupCommit=true` before running to apply. The flag auto-clears at the start of a committed run. The cleanup now also removes the legacy `mbc3-restore` script and `mbc3-main` scheduler.
+- **Added a `RouterOS script and scheduler policies` section to `CLAUDE.md`** documenting the required policy strings for every registered object.
+- **Updated `README.md`** to mark the runtime scripts as confirmed working (via the bundle's hardware test), document the explicit policies, the new scheduler names, and the dry-run cleanup procedure.
+
 ## 2026-06-01 00:00 UTC — mbc3-final-20260531-file-state+restore-guard
 
 > **Not yet tested on hardware.** This revision was ported by reading the routeros_bundle source; it has not been imported into a live MikroTik or exercised against a real LTE modem. Verify on a router before relying on it in production.

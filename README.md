@@ -4,7 +4,7 @@
 
 RouterOS scripting suite for MikroTik routers that monitors LTE/NR (5G NSA) band changes and signal quality on a modem interface, logging every meaningful transition to the system log and persisting comparison state across reboots.
 
-> ⚠️ **Current revision (`mbc3-final-20260531-file-state+restore-guard`) has not yet been tested on hardware.** It was ported by reading the upstream `routeros_bundle` source — the file-based state persistence path and the new `mbc3-cleanup` script in particular have not been exercised against a live MikroTik. Verify on a router before relying on it in production.
+> ✅ **Confirmed working on hardware.** The runtime scripts `MobileBandChange3.rsc` and `mbc3-restore-state.rsc` are functionally identical (zero executable-line differences) to the upstream `routeros_bundle` b2.22 versions that were verified working after the **2026-05-31 18:41** reboot on RouterOS 7.21.4 / MikroTik Chateau 5G R17 AX / Quectel RG650E-EU modem. The schedulers and script policies registered by `mbc3-install.rsc` mirror the bundle's tested `scheduler_templates.rsc` exactly. The installer/setup/cleanup wrappers are MobileBandCheckup-original code that produces the same end-state on the router.
 
 ---
 
@@ -56,10 +56,10 @@ Every event log includes the full context snapshot: data class, duplex mode, pri
 | File | Registered name | Role |
 |---|---|---|
 | `MobileBandChange3.rsc` | `MobileBandChange3` | Main poll loop — runs every 1 minute; writes state inline |
-| `mbc3-restore.rsc` | `mbc3-restore` | Loads persisted state on boot (runs once) |
-| `mbc3-install.rsc` | _(import only)_ | Bootstrap installer — registers scripts and schedulers |
+| `mbc3-restore-state.rsc` | `mbc3-restore-state` | Loads persisted state on boot (runs once) |
+| `mbc3-install.rsc` | _(import only)_ | Bootstrap installer — registers scripts and schedulers with explicit policies; migrates legacy names |
 | `mbc3-setup.rsc` | `mbc3-setup` | Re-registers schedulers only; idempotent, no .rsc files needed |
-| `mbc3-cleanup.rsc` | `mbc3-cleanup` | Removes schedulers, scripts, state file, and `mbc3*` globals; idempotent |
+| `mbc3-cleanup.rsc` | `mbc3-cleanup` | Removes schedulers, scripts, state file, and `mbc3*` globals; dry-run by default |
 
 State is stored in a single flat file, `/file mbc3-state.txt`, generated and overwritten by `MobileBandChange3` at each designated exit point. The file is created on the first save — no installer step is required for it.
 
@@ -69,7 +69,7 @@ State is stored in a single flat file, `/file mbc3-state.txt`, generated and ove
 
 State is stored in `/file mbc3-state.txt` as parse-replay code: a start marker, a sequence of `:global` / `:set` lines for each persisted variable, and an end marker. Saves are written inline inside `MobileBandChange3` (no separate `mbc3-save` script) using `/file print` + `/file set contents=` so that arbitrary string content — including `;`, `"`, `$`, and spaces — survives a quoted `:set` round-trip via an `escapeStr` helper.
 
-On boot, `mbc3-restore` reads `mbc3-state.txt`, refuses to act on missing/short/oversized files, requires both markers, then runs every line through an **allow-list guard** that only accepts comments or `:global`/`:set` of a known persisted variable with a well-formed scalar/quoted value. Anything else — an embedded `\r`, an unescaped `$`, a value with unexpected characters, an unknown variable name — cold-starts instead of executing untrusted content. Only after the guard passes does it `[:parse]` and run the payload.
+On boot, `mbc3-restore-state` reads `mbc3-state.txt`, refuses to act on missing/short/oversized files, requires both markers, then runs every line through an **allow-list guard** that only accepts comments or `:global`/`:set` of a known persisted variable with a well-formed scalar/quoted value. Anything else — an embedded `\r`, an unescaped `$`, a value with unexpected characters, an unknown variable name — cold-starts instead of executing untrusted content. Only after the guard passes does it `[:parse]` and run the payload.
 
 Globals persisted across reboots: `mbc3LastPrimary`, `mbc3LastCA`, `mbc3LastCARaw`, `mbc3LastLRsrp`, `mbc3LastLSinr`, `mbc3LastNrActive`, `mbc3PendingLRsrp/Count`, `mbc3PendingLSinr/Count`, and the four runtime-option globals (`mbc3Debug`, `mbc3DebugRaw`, `mbc3HeartbeatEvery`, `mbc3QualityMonitor`).
 
@@ -79,7 +79,9 @@ Globals persisted across reboots: `mbc3LastPrimary`, `mbc3LastCA`, `mbc3LastCARa
 
 ## Key design decisions
 
-**Scheduler race guard.** On boot, `mbc3-restore` and `mbc3-main` both start at `startup`. If `mbc3-main` fires first, it checks whether `mbc3RestoreDone` is set. If not, it runs `mbc3-restore` inline before proceeding, so state is always loaded before the first comparison.
+**Scheduler race guard.** On boot, `mbc3-restore-state` and `mbc3-run` both start at `startup` (with `mbc3-run` delayed 50s to let the modem settle). If `mbc3-run` fires first anyway, it checks whether `mbc3RestoreDone` is set. If not, it runs `mbc3-restore-state` inline before proceeding, so state is always loaded before the first comparison.
+
+**Explicit script and scheduler policies.** RouterOS refuses to run a scheduled script when the scheduler's policy does not exactly match the script object's policy ("not enough permissions to run script"). The installer registers `MobileBandChange3` with `ftp,read,write,policy,test` (`ftp` for the inline state save, `test` for `/interface lte monitor`, `policy` for `:global` writes) and the matching scheduler `mbc3-run` with the same policy string; `mbc3-restore-state` and its scheduler are registered with `ftp,read,write,policy`. These match the bundle's tested deployment.
 
 **2-run debounce on signal quality.** RSRP and SINR quality transitions only log when the new label is observed on two consecutive runs. This suppresses log noise from signals hovering near a class boundary.
 
@@ -93,23 +95,34 @@ Globals persisted across reboots: `mbc3LastPrimary`, `mbc3LastCA`, `mbc3LastCARa
 
 ## Installation
 
-Upload the five `.rsc` files (`MobileBandChange3.rsc`, `mbc3-restore.rsc`, `mbc3-setup.rsc`, `mbc3-cleanup.rsc`, `mbc3-install.rsc`) to the router flash, then:
+Upload the five `.rsc` files (`MobileBandChange3.rsc`, `mbc3-restore-state.rsc`, `mbc3-setup.rsc`, `mbc3-cleanup.rsc`, `mbc3-install.rsc`) to the router flash, then:
 
 ```
 /import file-name=mbc3-install.rsc
 ```
 
-The installer registers the four scripts (`MobileBandChange3`, `mbc3-restore`, `mbc3-setup`, `mbc3-cleanup`) and adds the two scheduler entries. The state file `mbc3-state.txt` is created automatically on the first save. Source `.rsc` files can be removed from flash after install; everything runs from NVRAM scripts.
+The installer registers the four scripts (`MobileBandChange3`, `mbc3-restore-state`, `mbc3-setup`, `mbc3-cleanup`) with their required policies and adds the two scheduler entries. The state file `mbc3-state.txt` is created automatically on the first save. Source `.rsc` files can be removed from flash after install; everything runs from NVRAM scripts.
+
+If you are upgrading from a pre-bundle-aligned revision the installer also removes the legacy `mbc3-restore` script and `mbc3-main` scheduler — your upgrade ends up with the same single, clean set of names as a fresh install.
 
 ### Uninstall
 
-To remove everything the installer added — both schedulers, all four registered scripts, the state file `mbc3-state.txt`, all `mbc3*` globals from the script environment, and legacy artefacts (`mbc3-save`, `mbc3-state` script slot) from the pre-file-state architecture — run:
+`mbc3-cleanup` is **dry-run by default** to prevent accidental data loss. With no commit flag set it logs what it would remove and counts entries; nothing is actually deleted. To dry-run first:
 
 ```
 /system script run mbc3-cleanup
+/log print where message~"mbc3-cleanup"
 ```
 
-The cleanup script is idempotent and safe to re-run. To remove `mbc3-cleanup` itself afterwards: `/system script remove [find name=mbc3-cleanup]`.
+To apply, arm the commit flag and re-run:
+
+```
+:global mbc3CleanupCommit
+:set mbc3CleanupCommit true
+/system script run mbc3-cleanup
+```
+
+The flag auto-clears at the start of a committed run, so a later stray invocation falls back to dry-run. The cleanup removes both schedulers, all four registered scripts, the state file, all `mbc3*` globals, and legacy artefacts (`mbc3-restore`, `mbc3-main`, `mbc3-save`, `mbc3-state` script slot) from earlier revisions. To remove `mbc3-cleanup` itself afterwards: `/system script remove [find name=mbc3-cleanup]`.
 
 To update schedulers later without touching script source:
 
@@ -139,10 +152,10 @@ Set before (or after) the first run. These are persisted across reboots once the
 
 ## Scheduler entries created
 
-| Name | Start | Interval | Action |
-|---|---|---|---|
-| `mbc3-restore` | startup | 0 (once) | `/system script run mbc3-restore` |
-| `mbc3-main` | startup | 1m | `/system script run MobileBandChange3` |
+| Name | Start | Interval | Action | Policy |
+|---|---|---|---|---|
+| `mbc3-restore-state` | startup | 0 (once) | `/system script run mbc3-restore-state` | `ftp,read,write,policy` |
+| `mbc3-run` | startup | 1m | `:delay 50s; /system script run MobileBandChange3` | `ftp,read,write,policy,test` |
 
 ---
 

@@ -1,9 +1,9 @@
 # MobileBandCheckup — Project Policies
 
 <!-- LAST CHANGE — only this block is updated on each change; all policies below are fixed -->
-date: 2026-06-01 00:00 UTC
-version: mbc3-final-20260531-file-state+restore-guard
-change: Backported file-based state persistence and earlier restore-guard placement from routeros_bundle, and added mbc3-cleanup.rsc (removes schedulers, scripts, state file, and all mbc3* globals from /system script environment). NOT YET TESTED ON HARDWARE — verify on a live router before relying on it.
+date: 2026-06-01 12:00 UTC
+version: mbc3-final-20260601-bundle-aligned
+change: Aligned with routeros_bundle b2.22 tested deployment — renamed mbc3-restore → mbc3-restore-state and mbc3-main scheduler → mbc3-run (with :delay 50s startup stagger), added explicit script and scheduler policies (ftp,read,write,policy,test on MobileBandChange3 + mbc3-run; ftp,read,write,policy on mbc3-restore-state + its scheduler), made mbc3-cleanup dry-run by default with a commit flag. Runtime scripts (MobileBandChange3.rsc, mbc3-restore-state.rsc) are now byte-for-byte equivalent on executable lines to the bundle's confirmed-working sources from the 2026-05-31 18:41 reboot.
 <!-- END LAST CHANGE -->
 
 ---
@@ -14,11 +14,26 @@ RouterOS scripting (`.rsc`), MikroTik hardware, `lte1` interface. No local execu
 
 ## State persistence
 
-State is stored in `/file mbc3-state.txt` as parse-replay code (markers + `:global`/`:set` lines). Saves are written inline by `MobileBandChange3` at designated exit points using `/file print` + `/file set contents=`. Restore (`mbc3-restore`) reads the file, validates start/end markers and size bounds, runs every line through an allow-list guard that only permits comments and `:global`/`:set` of known state variables with well-formed scalar/quoted values, and then `[:parse]`s and executes the payload. Any new persisted global must be added to both the `mbc3BuildState` helper inside `MobileBandChange3.rsc` and the allow-list in `mbc3-restore.rsc`. Do not write state anywhere other than `mbc3-state.txt`.
+State is stored in `/file mbc3-state.txt` as parse-replay code (markers + `:global`/`:set` lines). Saves are written inline by `MobileBandChange3` at designated exit points using `/file print` + `/file set contents=`. Restore (`mbc3-restore-state`) reads the file, validates start/end markers and size bounds, runs every line through an allow-list guard that only permits comments and `:global`/`:set` of known state variables with well-formed scalar/quoted values, and then `[:parse]`s and executes the payload. Any new persisted global must be added to both the `mbc3BuildState` helper inside `MobileBandChange3.rsc` and the allow-list in `mbc3-restore-state.rsc`. Do not write state anywhere other than `mbc3-state.txt`.
 
 ## Global variable naming
 
 All globals prefixed `mbc3`. Every script that touches a global must declare it with `:global` before use. Locals use `:local`.
+
+## RouterOS script and scheduler policies
+
+Every `/system script` registration and every `/system scheduler` registration must specify `policy=` explicitly, and the scheduler's policy must equal the script's policy. RouterOS refuses to run a scheduled script when they differ ("not enough permissions to run script"). The matched-set is:
+
+| Object | Required policy | Why |
+|---|---|---|
+| `MobileBandChange3` | `ftp,read,write,policy,test` | `ftp` for inline `/file mbc3-state.txt` write; `test` for `/interface lte monitor`; `policy` for `:global` writes |
+| `mbc3-run` (scheduler running MobileBandChange3) | `ftp,read,write,policy,test` | matches its script |
+| `mbc3-restore-state` | `ftp,read,write,policy` | `ftp` to read state file; `policy` for `:global` writes |
+| `mbc3-restore-state` (scheduler) | `ftp,read,write,policy` | matches its script |
+| `mbc3-setup` | `read,write,policy` | manipulates schedulers only |
+| `mbc3-cleanup` | `ftp,read,write,policy` | `ftp` for `/file remove` of state file |
+
+These match the routeros_bundle b2.22 tested deployment. Do not weaken them; do not omit the `policy=` argument from any `add`/`set` call in install/setup.
 
 ## Write-with-verify
 
@@ -79,6 +94,6 @@ Update `HISTORY.md` on every change. The file is **append-only** — never trim,
 - State writes to anywhere other than `/file mbc3-state.txt`
 - `/ping` or network calls from the main loop
 - `:delay` in the main loop, except the single 200ms settle after `/file print` in the state-save block
-- New globals not declared, included in `mbc3BuildState`, and listed in `mbc3-restore`'s allow-list
+- New globals not declared, included in `mbc3BuildState`, and listed in `mbc3-restore-state`'s allow-list
 - Extra inline state-save blocks outside the designated exit points
 - Stored find-result IDs passed to `set`
