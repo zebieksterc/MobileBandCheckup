@@ -1,9 +1,9 @@
 # MobileBandCheckup — Project Policies
 
 <!-- LAST CHANGE — only this block is updated on each change; all policies below are fixed -->
-date: 2026-06-01 12:00 UTC
+date: 2026-06-02 00:00 UTC
 version: mbc3-final-20260601-bundle-aligned
-change: Aligned with routeros_bundle b2.22 tested deployment — renamed mbc3-restore → mbc3-restore-state and mbc3-main scheduler → mbc3-run (with :delay 50s startup stagger), added explicit script and scheduler policies (ftp,read,write,policy,test on MobileBandChange3 + mbc3-run; ftp,read,write,policy on mbc3-restore-state + its scheduler), made mbc3-cleanup dry-run by default with a commit flag. Runtime scripts (MobileBandChange3.rsc, mbc3-restore-state.rsc) are now byte-for-byte equivalent on executable lines to the bundle's confirmed-working sources from the 2026-05-31 18:41 reboot.
+change: Added MANUAL.html — single-file dark-theme reference manual modelled on the upstream routeros_bundle MANUAL.html, scoped to the mbc3 component. Covers all five scripts, globals, tunables, schedulers, policies, state file, commands, and the on-router smoke-test. README header links to it.
 <!-- END LAST CHANGE -->
 
 ---

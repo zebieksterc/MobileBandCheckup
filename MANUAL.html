@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MobileBandCheckup — Manual</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d; --fg:#e6edf3; --mut:#9da7b3;
+    --accent:#4aa3ff; --warn:#e3b341; --bad:#f85149; --good:#3fb950; --code:#1f2630;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{display:flex;max-width:1280px;margin:0 auto}
+  nav{position:sticky;top:0;align-self:flex-start;height:100vh;overflow:auto;
+    width:280px;min-width:280px;padding:18px 14px;border-right:1px solid var(--border);
+    background:var(--panel);font-size:13.5px}
+  nav h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:18px 0 6px}
+  nav a{display:block;padding:3px 8px;border-radius:6px;color:var(--fg)}
+  nav a:hover{background:#21262d;text-decoration:none}
+  nav a.sub{padding-left:20px;color:var(--mut);font-size:12.5px}
+  main{flex:1;min-width:0;padding:28px 38px 120px}
+  h1{font-size:30px;margin:.2em 0 .1em}
+  h2{font-size:23px;margin:1.8em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--border)}
+  h3{font-size:18px;margin:1.4em 0 .4em;color:#cdd9e5}
+  h4{font-size:15px;margin:1.1em 0 .3em;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+  code{font-family:var(--mono);background:var(--code);padding:1px 5px;border-radius:5px;font-size:.9em}
+  pre{background:var(--code);border:1px solid var(--border);border-radius:8px;padding:12px 14px;overflow:auto}
+  pre code{background:none;padding:0}
+  table{border-collapse:collapse;width:100%;margin:.6em 0 1em;font-size:13.5px}
+  th,td{border:1px solid var(--border);padding:6px 9px;text-align:left;vertical-align:top}
+  th{background:#1b222c;color:#cdd9e5;font-weight:600}
+  tr:nth-child(even) td{background:#11161d}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11.5px;padding:1px 7px;border-radius:20px;border:1px solid var(--border)}
+  .t-run{background:#102a1a;color:var(--good);border-color:#1f6f3f}
+  .t-help{background:#10202e;color:var(--accent);border-color:#1f5a8f}
+  .t-tool{background:#2a2410;color:var(--warn);border-color:#7a6320}
+  .lead{color:var(--mut);font-size:16px;max-width:70ch}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin:14px 0}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 22px;margin:.4em 0 .8em;font-size:13px;color:var(--mut)}
+  .meta b{color:var(--fg)}
+  .note{border-left:3px solid var(--accent);background:#0f1b2b;padding:8px 14px;border-radius:0 8px 8px 0;margin:12px 0}
+  .warn{border-left:3px solid var(--warn);background:#241f10}
+  .good{border-left:3px solid var(--good);background:#0e1f15;padding:8px 14px;border-radius:0 8px 8px 0;margin:12px 0}
+  .danger{border-left:3px solid var(--bad);background:#2a1414}
+  .issue{border-left:3px solid var(--bad);background:#1f1517;padding:8px 14px;border-radius:0 8px 8px 0;margin:12px 0}
+  .issue b.h{display:block;color:var(--bad);font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+  .issue .fix{color:var(--good)}
+  .def{color:var(--good);font-family:var(--mono)}
+  .rng{color:var(--mut);font-family:var(--mono);font-size:.92em}
+  footer{color:var(--mut);font-size:12.5px;border-top:1px solid var(--border);margin-top:40px;padding-top:14px}
+  .pill{font-family:var(--mono);font-size:12px}
+  hr{border:0;border-top:1px solid var(--border);margin:2em 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <strong>MobileBandCheckup</strong>
+  <div style="color:var(--mut);font-size:12px;margin:2px 0 6px">mbc3 · bundle-aligned · RouterOS 7.21.4</div>
+  <h2>Start here</h2>
+  <a href="#overview">Overview &amp; architecture</a>
+  <a href="#install">Install / upgrade / uninstall</a>
+  <a class="sub" href="#gotchas">RouterOS gotchas</a>
+  <h2>Scripts</h2>
+  <a href="#mbc3">MobileBandChange3</a>
+  <a class="sub" href="#mbc3-events">events logged</a>
+  <a class="sub" href="#mbc3-quality">quality labels</a>
+  <a href="#restore">mbc3-restore-state</a>
+  <a href="#install-script">mbc3-install</a>
+  <a href="#setup">mbc3-setup</a>
+  <a href="#cleanup">mbc3-cleanup</a>
+  <h2>Reference</h2>
+  <a href="#globals">Globals reference</a>
+  <a href="#tunables">Tunables &amp; flags</a>
+  <a href="#schedulers">Schedulers</a>
+  <a href="#policies">Policies</a>
+  <a href="#state">State file</a>
+  <a href="#commands">Commands</a>
+  <a href="#testing">Testing</a>
+</nav>
+<main>
+
+<h1>MobileBandCheckup — full manual</h1>
+<p class="lead">A standalone RouterOS scripting suite for MikroTik routers that monitors
+LTE/NR (5G NSA) band changes and signal quality on a modem interface, logging every
+meaningful transition to the system log and persisting comparison state across reboots.
+This manual covers every script, every global, every tunable with its default and range,
+the scheduler entries and required policies, the state file, the operator commands, and
+how to verify a deployment.</p>
+<div class="meta">
+  <span><b>revision</b> mbc3-final-20260601-bundle-aligned</span>
+  <span><b>aligned with</b> routeros_bundle b2.22</span>
+  <span><b>hardware test</b> 2026-05-31 18:41 UTC reboot</span>
+  <span><b>routeros</b> 7.21.4</span>
+  <span><b>device</b> MikroTik Chateau 5G R17 AX</span>
+  <span><b>modem</b> Quectel RG650E-EU</span>
+</div>
+<div class="good">
+  <b>Status — confirmed working on hardware.</b> After the 2026-06-01 bundle-aligned
+  revision, <code>MobileBandChange3.rsc</code> and <code>mbc3-restore-state.rsc</code> are
+  byte-for-byte equivalent on executable lines to the <code>routeros_bundle</code> b2.22
+  sources that were verified working at the 2026-05-31 18:41 reboot. The installer
+  registers script and scheduler policies identical to the bundle's tested
+  <code>scheduler_templates.rsc</code>. The installer / setup / cleanup wrappers are
+  MobileBandCheckup-original code that produces the same end-state on the router.
+</div>
+
+<!-- ============================================================ -->
+<h2 id="overview">Overview &amp; architecture</h2>
+<p>The main script (<code>MobileBandChange3</code>) runs every minute via the RouterOS
+scheduler. Each run it polls the LTE interface monitor, extracts the current radio
+conditions (band, carrier-aggregation set, RSRP, SINR, CQI, RI, MCS, NR fields),
+compares them against the last-known state, and logs any meaningful change. It is silent
+when nothing changes — except for a periodic heartbeat.</p>
+<p>State is persisted to a single flat file, <code>/file mbc3-state.txt</code>, written
+inline by <code>MobileBandChange3</code> at each designated exit point. On boot,
+<code>mbc3-restore-state</code> reads it through an allow-list guard and reloads the
+globals so the post-reboot comparison resumes where the pre-reboot one left off.</p>
+<p>The suite is five files; only four are registered as <code>/system script</code>
+objects (the installer is import-only):</p>
+<table>
+<tr><th>File</th><th>Registered object</th><th>Role</th><th>Tag</th></tr>
+<tr><td><code>MobileBandChange3.rsc</code></td><td><code>MobileBandChange3</code></td><td>main poll loop — every 1 minute, writes state inline</td><td><span class="tag t-run">run</span></td></tr>
+<tr><td><code>mbc3-restore-state.rsc</code></td><td><code>mbc3-restore-state</code></td><td>loads persisted state on boot (runs once)</td><td><span class="tag t-help">helper</span></td></tr>
+<tr><td><code>mbc3-install.rsc</code></td><td>—</td><td>bootstrap installer (run via <code>/import</code>)</td><td><span class="tag t-tool">tool</span></td></tr>
+<tr><td><code>mbc3-setup.rsc</code></td><td><code>mbc3-setup</code></td><td>re-registers schedulers only; idempotent</td><td><span class="tag t-tool">tool</span></td></tr>
+<tr><td><code>mbc3-cleanup.rsc</code></td><td><code>mbc3-cleanup</code></td><td>removes schedulers, scripts, state, globals — dry-run by default</td><td><span class="tag t-tool">tool</span></td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="install">Install / upgrade / uninstall</h2>
+<h3>Fresh install</h3>
+<p>Upload the five <code>.rsc</code> files to the router flash (e.g. via WinBox
+<i>Files</i> drag-and-drop, or <code>scp</code> to <code>/</code>), then:</p>
+<pre><code>/import file-name=mbc3-install.rsc</code></pre>
+<p>The installer registers the four scripts and the two scheduler entries with their
+required policies (<a href="#policies">policy table</a>). State file
+<code>mbc3-state.txt</code> is created automatically on the first save — no install step
+required. Source <code>.rsc</code> files can be removed from flash after install;
+everything runs from NVRAM scripts.</p>
+
+<h3>Upgrade from a pre-bundle-aligned revision</h3>
+<p>The installer also removes the legacy <code>mbc3-restore</code> script and the
+<code>mbc3-main</code> scheduler if present, so upgrades end up with a single, clean set
+of names matching the bundle (<code>mbc3-restore-state</code> + <code>mbc3-run</code>).
+Simply re-run the import; no manual cleanup needed.</p>
+
+<h3>Update schedulers only (no script changes)</h3>
+<pre><code>/system script run mbc3-setup</code></pre>
+<p>Idempotent; safe to re-run. Also removes the legacy scheduler names.</p>
+
+<h3>Uninstall — dry-run first</h3>
+<p><code>mbc3-cleanup</code> is <b>dry-run by default</b> so an accidental invocation
+cannot wipe a working deployment. With no commit flag set it logs what it
+<i>would</i> remove and counts entries; nothing is deleted.</p>
+<pre><code>/system script run mbc3-cleanup
+/log print where message~"mbc3-cleanup"</code></pre>
+
+<h3>Uninstall — apply</h3>
+<pre><code>:global mbc3CleanupCommit
+:set mbc3CleanupCommit true
+/system script run mbc3-cleanup</code></pre>
+<p>The flag auto-clears at the start of a committed run, so a later stray invocation
+falls back to dry-run. The cleanup removes both schedulers, all four registered
+scripts, the state file, all <code>mbc3*</code> globals, and legacy artefacts
+(<code>mbc3-restore</code>, <code>mbc3-main</code>, <code>mbc3-save</code>,
+<code>mbc3-state</code> script slot) from earlier revisions.</p>
+<p>To remove <code>mbc3-cleanup</code> itself afterwards:
+<code>/system script remove [find name=mbc3-cleanup]</code></p>
+
+<h3 id="gotchas">RouterOS gotchas (issues that bit us)</h3>
+<div class="issue"><b class="h">Bug (fixed) — <code>[:find]</code> guards</b>
+Earlier revisions used <code>[:find …] = nil</code>, which is false-not-nil, so the
+guards never fired and arithmetic / <code>:pick</code> ran on <code>false</code> whenever
+a modem field was absent (no CA, NR inactive). <span class="fix">Fix: every site now uses
+<code>[:typeof …] = "num"</code>.</span></div>
+<div class="issue"><b class="h">Bug (fixed) — bare-name scheduler on-event</b>
+A scheduler with on-event <code>:delay 50s; MobileBandChange3</code> (bare name after the
+delay) is parsed as a command and fails with <code>expected command name (line 1 column …)</code>.
+<span class="fix">Fix: the scheduler now uses <code>:delay 50s; /system script run MobileBandChange3</code>;
+confirmed firing after a reboot.</span></div>
+<div class="issue"><b class="h">Bug (fixed) — <code>mbc3-main</code> → <code>mbc3-run</code></b>
+The periodic scheduler was renamed for consistency with the upstream bundle. Both
+<code>mbc3-install</code> and <code>mbc3-setup</code> remove a leftover
+<code>mbc3-main</code> on upgrade so <code>MobileBandChange3</code> can't run twice per
+minute.</div>
+<div class="issue"><b class="h">Bug (fixed) — script &harr; scheduler policy mismatch</b>
+RouterOS refuses to run a scheduled script when the scheduler's policy does not exactly
+match the script object's policy ("not enough permissions to run script"). Without
+<code>ftp</code> on <code>MobileBandChange3</code>, the inline state save throws
+<code>"inline state save failed"</code>; without <code>test</code>,
+<code>/interface lte monitor</code> fails. <span class="fix">Fix: the installer now passes
+explicit <code>policy=</code> on every <code>add</code> / <code>set</code> and the script
+and its scheduler always carry identical policy strings (<a href="#policies">policy
+table</a>).</span></div>
+
+<!-- ============================================================ -->
+<h2 id="mbc3">MobileBandChange3 — band &amp; quality monitor</h2>
+<div class="meta">
+  <span><b>scheduler</b> <code>mbc3-run</code> — startup, interval 1m, <code>:delay 50s</code></span>
+  <span><b>policy</b> <code>ftp,read,write,policy,test</code></span>
+  <span><b>state file</b> <code>mbc3-state.txt</code></span>
+  <span><b>interface</b> <code>lte1</code></span>
+</div>
+<p>Reads the modem's primary band, carrier-aggregation set, and LTE/NR signal quality
+(<code>/interface lte monitor</code>), logs band/CA changes as events and a periodic
+heartbeat, and persists comparison state. The startup guard runs
+<code>mbc3-restore-state</code> inline before reading persisted options if the boot
+scheduler hasn't won the race.</p>
+
+<h3 id="mbc3-events">Events logged</h3>
+<table>
+<tr><th>Event</th><th>Trigger</th><th>Severity</th></tr>
+<tr><td><code>LTE init</code></td><td>First valid reading after boot or interface recovery</td><td>warning</td></tr>
+<tr><td><code>LTE iface-down</code> / <code>LTE iface-up-recovery</code></td><td>Interface transitions between running / not running</td><td>warning</td></tr>
+<tr><td><code>NR connected</code> / <code>NR disconnected</code></td><td>5G NR component carrier appears or disappears</td><td>warning</td></tr>
+<tr><td><code>LTE primary-switch</code></td><td>Primary serving cell changes band, EARFCN, or PCI (classified as <code>band-change</code>, <code>earfcn-change</code>, <code>phy-cellid-change</code>, or <code>details-change</code>)</td><td>warning</td></tr>
+<tr><td><code>LTE ca-composition-change</code></td><td>Carrier aggregation band set changes (deduplicated)</td><td>warning</td></tr>
+<tr><td><code>LTE ca-drop-to-none</code></td><td>CA was active and is now empty (logged alongside the composition-change)</td><td>warning</td></tr>
+<tr><td><code>LTE ca-raw-change</code></td><td>CA band order / representation changes while normalized set is the same</td><td>warning</td></tr>
+<tr><td><code>LTE rsrp-quality-change</code></td><td>RSRP crosses a quality tier boundary (2-run debounce)</td><td>warning</td></tr>
+<tr><td><code>LTE sinr-quality-change</code></td><td>SINR crosses a quality tier boundary (2-run debounce)</td><td>warning</td></tr>
+<tr><td><code>LTE state-repair</code></td><td>Restored state was missing a field; the running script repaired it</td><td>warning</td></tr>
+<tr><td><code>heartbeat</code></td><td>Periodic liveness snapshot (one line; default every 60 runs ≈ 60 min)</td><td>info</td></tr>
+<tr><td><code>state saved -&gt; mbc3-state.txt</code></td><td>Inline state save committed after a meaningful change</td><td>info</td></tr>
+<tr><td><code>LTE monitor-empty</code> / <code>monitor-invalid</code></td><td>Modem returned no / partial data — state update skipped</td><td>warning</td></tr>
+</table>
+<p>Every event log includes the full context snapshot: data class, duplex mode, primary
+band, CA bands, and all signal metrics with labels.</p>
+
+<h3 id="mbc3-quality">Signal quality labels</h3>
+<table>
+<tr><th>Metric</th><th>excellent</th><th>good</th><th>fair</th><th>poor</th></tr>
+<tr><td><b>RSRP</b> (dBm)</td><td>≥ −80</td><td>≥ −90</td><td>≥ −100</td><td>&lt; −100</td></tr>
+<tr><td><b>SINR</b> (dB)</td><td>≥ 20</td><td>≥ 13</td><td>≥ 5</td><td>&lt; 5</td></tr>
+<tr><td><b>CQI</b></td><td>≥ 12</td><td>≥ 8</td><td>≥ 5</td><td>&lt; 5</td></tr>
+</table>
+<p><b>RI</b> (rank indicator): <code>MIMO</code> if ≥ 2 streams · <code>single-stream</code> if = 1.
+<b>MCS</b>: <code>idle</code> ≤ 0 · <code>low</code> &lt; 10 · <code>medium</code> &lt; 20 · <code>high</code> ≥ 20.
+These only label the log output; the script does not branch on them other than the RSRP / SINR
+quality-change events.</p>
+
+<h4>Tunables (globals)</h4>
+<table>
+<tr><th>Global</th><th>Default</th><th>Range / values</th><th>Persisted?</th><th>Meaning</th></tr>
+<tr><td><code>mbc3HeartbeatEvery</code></td><td class="def">60</td><td class="rng">≥ 1 (else reset to 60)</td><td>yes</td><td>Heartbeat cadence: emit a one-line summary every N runs (60 runs ≈ 60 min with a 1-min scheduler).</td></tr>
+<tr><td><code>mbc3Debug</code></td><td class="def">false</td><td class="rng">true/false</td><td>yes</td><td>Extra debug logging on internal comparisons.</td></tr>
+<tr><td><code>mbc3DebugRaw</code></td><td class="def">false</td><td class="rng">true/false</td><td>yes</td><td>Dump raw modem-monitor metric lines on every event.</td></tr>
+<tr><td><code>mbc3QualityMonitor</code></td><td class="def">false</td><td class="rng">true/false</td><td>yes</td><td>Default off: disables the RSRP / SINR quality-change event block entirely (no events, no state-save churn from quality fluctuations). Set true to enable.</td></tr>
+</table>
+
+<h4>Key design decisions</h4>
+<ul>
+<li><b>Scheduler race guard.</b> On boot, <code>mbc3-restore-state</code> and
+<code>mbc3-run</code> both start at <code>startup</code> (the latter delayed 50s).
+If <code>mbc3-run</code> somehow wins the race, the very first thing it does is check
+<code>mbc3RestoreDone</code>; if unset, it runs <code>mbc3-restore-state</code> inline
+<i>before</i> reading any persisted state, so defaults can never overwrite restored
+values.</li>
+<li><b>2-run debounce on signal quality.</b> RSRP and SINR tier transitions only log when
+the new label is observed on two consecutive runs. Suppresses log noise from signals
+hovering near a tier boundary.</li>
+<li><b>CA normalization.</b> Carrier aggregation lists from the modem can contain exact
+duplicates or vary in ordering without a real composition change. <code>normalizeCA</code>
+removes duplicates (preserving first-seen order) before comparison, so only genuine set
+changes produce <code>ca-composition-change</code> events. Ordering / representation-only
+differences produce the lower-severity <code>ca-raw-change</code> event.</li>
+<li><b>Primary-change classification.</b> When the primary cell changes, the script
+extracts band, EARFCN, and PCI from the <code>primary-band</code> string and labels the
+event <code>band-change</code> / <code>earfcn-change</code> / <code>phy-cellid-change</code>
+/ <code>details-change</code> based on which field actually changed.</li>
+<li><b>Crash-forensics probe.</b> Every significant step updates three globals
+(<code>mbc3Probe</code>, <code>mbc3ProbeDetail</code>, <code>mbc3FailProbe</code>).
+At the start of each run, the previous values are snapshotted into
+<code>mbc3LastRunProbe*</code>. If the script dies mid-run, the next run captures where
+it was. Query with <code>:put $mbc3LastRunProbe</code>, etc.</li>
+<li><b>Monitor validity guard.</b> If <code>/interface lte monitor</code> returns no
+<code>primary-band</code>, the script logs <code>LTE monitor-invalid</code> with a
+list of missing fields, resets <code>mbc3LogInited</code> so the next valid reading
+re-runs the init path, and skips the comparison.</li>
+<li><b>Interface-down recovery.</b> When <code>lte1</code> stops running, the script
+logs <code>LTE iface-down</code>, fully resets comparison state, and saves. When it
+comes back, <code>LTE iface-up-recovery</code> is logged and the next valid reading
+emits a fresh <code>LTE init</code>.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="restore">mbc3-restore-state — boot-time state restore</h2>
+<div class="meta">
+  <span><b>scheduler</b> <code>mbc3-restore-state</code> — startup once (interval 0)</span>
+  <span><b>policy</b> <code>ftp,read,write,policy</code></span>
+  <span><b>reads</b> <code>mbc3-state.txt</code></span>
+</div>
+<p>Runs once on boot. Reads <code>/file mbc3-state.txt</code>, validates it, and replays
+it via <code>[:parse]</code> so the persisted globals are back in RAM before
+<code>MobileBandChange3</code> compares anything. The same script is also invoked
+<i>inline</i> by <code>MobileBandChange3</code> if it discovers
+<code>mbc3RestoreDone</code> is still unset (scheduler race guard).</p>
+
+<h4>Validation pipeline</h4>
+<ol>
+<li><b>File presence:</b> missing → cold start (no state).</li>
+<li><b>Size bounds:</b> &lt; 80 bytes → cold start; &gt; 60 000 bytes → refused
+(<code>DISRUPTIVE</code>).</li>
+<li><b>Markers:</b> require <code># MBC3-STATE-V1</code> at the start and
+<code># MBC3-STATE-END</code> at the end. Either missing → cold start.</li>
+<li><b>Allow-list guard:</b> every line is checked. Allowed forms:
+<ul>
+<li>A <code>#</code> comment line.</li>
+<li><code>:global &lt;name&gt;</code> where <code>&lt;name&gt;</code> is one of the
+14 known persisted variables.</li>
+<li><code>:set &lt;name&gt; &lt;value&gt;</code> where <code>&lt;value&gt;</code> is
+either empty, a bare scalar of <code>[0-9a-zA-Z._-]</code>, or a single
+quoted string whose only unescaped <code>"</code> is the final character.</li>
+</ul>
+Anything else — an embedded <code>\r</code>, an unescaped <code>$</code>, a value with
+unexpected characters, an unknown variable name, a non-assignment / non-comment line —
+fails the check and the file is rejected (cold start). Only after the guard passes does
+the script <code>[:parse]</code> and execute the payload.</li>
+</ol>
+
+<h4>Allow-listed variables</h4>
+<p><code>mbc3Debug</code>, <code>mbc3DebugRaw</code>, <code>mbc3HeartbeatEvery</code>,
+<code>mbc3QualityMonitor</code>, <code>mbc3LastPrimary</code>,
+<code>mbc3LastCA</code>, <code>mbc3LastCARaw</code>, <code>mbc3LastLRsrp</code>,
+<code>mbc3LastLSinr</code>, <code>mbc3LastNrActive</code>,
+<code>mbc3PendingLRsrp</code>, <code>mbc3PendingLRsrpCount</code>,
+<code>mbc3PendingLSinr</code>, <code>mbc3PendingLSinrCount</code>.</p>
+<div class="note">
+<b>Adding a new persisted global</b> means three touch points: declare and
+<code>:global</code> it in <code>MobileBandChange3.rsc</code>, add it to the
+<code>mbc3BuildState</code> helper (so it gets written), and add it to the allow-list
+table inside <code>mbc3-restore-state.rsc</code> (so it survives the guard on the next
+boot). Skipping the allow-list update means the restore silently cold-starts.
+</div>
+<div class="issue"><b class="h">Bug (fixed) — every-reboot cold start from <code>= nil</code></b>
+An earlier version of the line tokenizer compared
+<code>[:find $rest "\n"]</code> to the bare identifier <code>nil</code>, which is
+unreliable in RouterOS: the comparison silently corrupted the line and every reboot
+took the cold-start path. <span class="fix">Fix: every <code>[:find …]</code> result is
+tested via <code>[:typeof …] = "num"</code>, never against <code>nil</code>.</span></div>
+
+<!-- ============================================================ -->
+<h2 id="install-script">mbc3-install — bootstrap installer</h2>
+<div class="meta">
+  <span><b>invocation</b> <code>/import file-name=mbc3-install.rsc</code></span>
+  <span><b>not</b> a registered script</span>
+</div>
+<p>Reads the other four <code>.rsc</code> files from flash, registers each as a
+<code>/system script</code> object with the correct policy, and adds the two scheduler
+entries. Idempotent — re-running upserts (try <code>add</code>, fall back to
+<code>set [find name=…]</code> inline). Includes a legacy migration step so upgraders
+from a pre-bundle-aligned revision end up with the new names.</p>
+
+<h4>What it does, in order</h4>
+<ol>
+<li><b>Legacy removal.</b> If a <code>mbc3-main</code> scheduler exists, remove it
+(replaced by <code>mbc3-run</code>). If a <code>mbc3-restore</code> script exists, remove
+it (replaced by <code>mbc3-restore-state</code>).</li>
+<li><b>Register scripts</b> with explicit policies via the <code>upsertScript</code>
+helper. The helper checks the source file exists, reads it, sanity-checks the length
+against a minimum, and then tries <code>add</code> first and falls back to
+<code>set [find name=…]</code> if the object already exists.</li>
+<li><b>Register schedulers</b> with explicit policies via the <code>upsertScheduler</code>
+helper. <code>mbc3-restore-state</code> at startup with interval 0; <code>mbc3-run</code>
+at startup with interval 1m and the <code>:delay 50s</code> stagger.</li>
+</ol>
+
+<h4>Required source files on flash</h4>
+<table>
+<tr><th>File</th><th>Min bytes</th><th>Registered as</th></tr>
+<tr><td><code>MobileBandChange3.rsc</code></td><td>20000</td><td><code>MobileBandChange3</code></td></tr>
+<tr><td><code>mbc3-restore-state.rsc</code></td><td>300</td><td><code>mbc3-restore-state</code></td></tr>
+<tr><td><code>mbc3-setup.rsc</code></td><td>500</td><td><code>mbc3-setup</code></td></tr>
+<tr><td><code>mbc3-cleanup.rsc</code></td><td>500</td><td><code>mbc3-cleanup</code></td></tr>
+</table>
+<p>If a file is missing or shorter than its minimum, the installer logs an error and
+skips that object — it never registers a truncated script.</p>
+
+<div class="note"><b>Upsert safety.</b> Every <code>set</code> uses
+<code>set [find name=&lt;literal&gt;]</code> inline. Never store a find-result ID in a
+variable and pass it to <code>set</code>: if the find returned empty, the stored ID is
+empty and <code>set</code> is applied to <i>all</i> entries — a real foot-gun in RouterOS.</div>
+
+<!-- ============================================================ -->
+<h2 id="setup">mbc3-setup — scheduler refresh</h2>
+<div class="meta">
+  <span><b>invocation</b> <code>/system script run mbc3-setup</code> or <code>/import file-name=mbc3-setup.rsc</code></span>
+  <span><b>policy</b> <code>read,write,policy</code></span>
+</div>
+<p>Registers or updates scheduler entries only — does <b>not</b> touch script source.
+Safe to run at any time, idempotent, requires no <code>.rsc</code> files. Use it when
+you want to refresh the scheduler config without re-importing the installer (e.g. after
+modifying a scheduler's <code>on-event</code> by hand and wanting to revert it).</p>
+<p>Also performs the same legacy-removal step (<code>mbc3-main</code>,
+<code>mbc3-restore</code>) so a partial migration can be completed without re-running
+the full installer.</p>
+
+<!-- ============================================================ -->
+<h2 id="cleanup">mbc3-cleanup — uninstaller (dry-run by default)</h2>
+<div class="meta">
+  <span><b>invocation</b> <code>/system script run mbc3-cleanup</code></span>
+  <span><b>policy</b> <code>ftp,read,write,policy</code></span>
+  <span><b>commit flag</b> <code>mbc3CleanupCommit</code></span>
+</div>
+<p>Symmetric to <code>mbc3-install</code>. Removes everything the installer added, plus
+in-RAM globals and legacy artefacts from earlier revisions.</p>
+<p><b>Dry-run by default</b> — mirrors the <code>routeros_bundle bundle-reset-state</code>
+safety pattern. With no commit flag set, every step logs what it <i>would</i> remove
+and counts entries; nothing is actually deleted. The flag auto-clears at the start of
+a committed run so a later stray invocation falls back to dry-run.</p>
+
+<h4>Operator flow</h4>
+<pre><code># Dry-run first
+/system script run mbc3-cleanup
+/log print where message~"mbc3-cleanup"
+
+# Apply
+:global mbc3CleanupCommit
+:set mbc3CleanupCommit true
+/system script run mbc3-cleanup</code></pre>
+
+<h4>What it removes, in order</h4>
+<ol>
+<li><b>Schedulers</b> first, so neither <code>mbc3-restore-state</code> nor
+<code>mbc3-run</code> can fire between us deleting their script bodies and finishing.
+Current names: <code>mbc3-run</code>, <code>mbc3-restore-state</code>.
+Legacy names: <code>mbc3-main</code>, <code>mbc3-restore</code>.</li>
+<li><b>Scripts.</b> Current: <code>MobileBandChange3</code>,
+<code>mbc3-restore-state</code>, <code>mbc3-setup</code>. (Cleanup deliberately leaves
+itself in place so a re-run is possible; remove it by hand afterwards.)
+Legacy: <code>mbc3-restore</code>, <code>mbc3-save</code>, <code>mbc3-state</code>
+script slot from the pre-file-state architecture.</li>
+<li><b>State file</b> <code>/file mbc3-state.txt</code>.</li>
+<li><b>All <code>mbc3*</code> globals</b> from <code>/system script environment</code>
+via <code>remove [find where name~"^mbc3"]</code>. Removing entries from
+<code>environment</code> is what unsets in-place — <code>:set var</code> without a
+value would only blank, not free the slot.</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="globals">Globals reference</h2>
+<p>Kinds: <b>state</b> = persisted to <code>mbc3-state.txt</code> and restored on boot;
+<b>runtime</b> = RAM-only working / probe values; <b>tunable</b> = operator-settable
+(see <a href="#tunables">next section</a>); <b>guard</b> = presence-checked flag.</p>
+<table>
+<tr><th>Global</th><th>Kind</th><th>Meaning</th></tr>
+<tr><td><code>mbc3LastPrimary</code></td><td>state</td><td>last <code>primary-band</code> string (full, including <code>earfcn:</code> and <code>phy-cellid:</code>)</td></tr>
+<tr><td><code>mbc3LastCA</code></td><td>state</td><td>last normalized CA composition (deduplicated, first-seen order)</td></tr>
+<tr><td><code>mbc3LastCARaw</code></td><td>state</td><td>last raw CA list as the modem returned it (used for the <code>ca-raw-change</code> event)</td></tr>
+<tr><td><code>mbc3LastLRsrp</code></td><td>state</td><td>last RSRP tier label</td></tr>
+<tr><td><code>mbc3LastLSinr</code></td><td>state</td><td>last SINR tier label</td></tr>
+<tr><td><code>mbc3LastNrActive</code></td><td>state</td><td>whether NR was active on the last run</td></tr>
+<tr><td><code>mbc3PendingLRsrp</code> / <code>mbc3PendingLRsrpCount</code></td><td>state</td><td>RSRP-tier debounce accumulator (label + consecutive-count)</td></tr>
+<tr><td><code>mbc3PendingLSinr</code> / <code>mbc3PendingLSinrCount</code></td><td>state</td><td>SINR-tier debounce accumulator</td></tr>
+<tr><td><code>mbc3RunCount</code></td><td>runtime</td><td>monotonic run counter since boot</td></tr>
+<tr><td><code>mbc3HeartbeatCount</code></td><td>runtime</td><td>runs since last heartbeat; resets to 0 after firing</td></tr>
+<tr><td><code>mbc3LogInited</code></td><td>runtime</td><td>true after the first valid reading post-boot has produced an <code>LTE init</code>; intentionally <b>not</b> persisted so every reboot emits a fresh init</td></tr>
+<tr><td><code>mbc3LastIfaceRunning</code></td><td>runtime</td><td>last observed <code>running</code> value of <code>lte1</code> — drives the <code>iface-down</code> / <code>iface-up-recovery</code> edge events</td></tr>
+<tr><td><code>mbc3Probe</code> / <code>mbc3ProbeDetail</code> / <code>mbc3FailProbe</code></td><td>runtime</td><td>current-run crash-forensics probe (where am I, what was I doing, did I fail)</td></tr>
+<tr><td><code>mbc3LastRunProbe</code> / <code>mbc3LastRunProbeDetail</code> / <code>mbc3LastRunFailProbe</code></td><td>runtime</td><td>previous-run snapshot — survives a mid-run crash</td></tr>
+<tr><td><code>mbc3RestoreDone</code></td><td>guard</td><td>set <code>true</code> by <code>mbc3-restore-state</code> in every exit path; checked by <code>MobileBandChange3</code> as <code>[:typeof …]="nothing"</code> to decide whether to run restore inline. Not persisted; clears on every reboot.</td></tr>
+<tr><td><code>mbc3CleanupCommit</code></td><td>guard</td><td>arm flag for <code>mbc3-cleanup</code>; auto-cleared at the start of a committed run</td></tr>
+<tr><td><code>mbc3Debug</code> / <code>mbc3DebugRaw</code> / <code>mbc3HeartbeatEvery</code> / <code>mbc3QualityMonitor</code></td><td>tunable (state)</td><td>see <a href="#tunables">Tunables</a></td></tr>
+</table>
+<div class="note"><b>Why <code>mbc3LogInited</code> is not persisted.</b> Restoring it
+across reboot would suppress the post-boot <code>LTE init</code> line, making log
+analysis ambiguous (was there a clean init? did the script start at all?). Forcing a
+fresh init on every boot makes the timeline self-documenting.</div>
+
+<!-- ============================================================ -->
+<h2 id="tunables">Tunables &amp; flags — defaults and ranges</h2>
+<p>Everything an operator can set, in one place. Set with <code>:set &lt;global&gt; &lt;value&gt;</code>
+at the console (globals are RAM; persisted ones survive reboot via the state file).</p>
+<table>
+<tr><th>Global</th><th>Script</th><th>Default</th><th>Range / values</th><th>Persisted?</th><th>Purpose</th></tr>
+<tr><td><a href="#mbc3"><code>mbc3HeartbeatEvery</code></a></td><td>MobileBandChange3</td><td class="def">60</td><td class="rng">≥ 1 (else reset to 60)</td><td>yes</td><td>heartbeat every N runs — <a href="#mbc3">details ↑</a></td></tr>
+<tr><td><a href="#mbc3"><code>mbc3Debug</code></a></td><td>MobileBandChange3</td><td class="def">false</td><td class="rng">true/false</td><td>yes</td><td>extra debug logging — <a href="#mbc3">details ↑</a></td></tr>
+<tr><td><a href="#mbc3"><code>mbc3DebugRaw</code></a></td><td>MobileBandChange3</td><td class="def">false</td><td class="rng">true/false</td><td>yes</td><td>raw modem dump on every event — <a href="#mbc3">details ↑</a></td></tr>
+<tr><td><a href="#mbc3"><code>mbc3QualityMonitor</code></a></td><td>MobileBandChange3</td><td class="def">false</td><td class="rng">true/false</td><td>yes</td><td>enable RSRP/SINR quality-change events — <a href="#mbc3">details ↑</a></td></tr>
+<tr><td><a href="#cleanup"><code>mbc3CleanupCommit</code></a></td><td>mbc3-cleanup</td><td class="def">unset</td><td class="rng">true</td><td>no</td><td>arm an uninstall (auto-disarms first) — <a href="#cleanup">details ↑</a></td></tr>
+</table>
+<pre><code># Examples — runtime
+:global mbc3HeartbeatEvery; :set mbc3HeartbeatEvery 30   # heartbeat every 30 min
+:global mbc3Debug;          :set mbc3Debug true          # turn on debug logging
+:global mbc3QualityMonitor; :set mbc3QualityMonitor true # enable quality events</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="schedulers">Schedulers</h2>
+<p>All script-invoking schedulers use <code>/system script run &lt;name&gt;</code>
+(a bare name fails with <i>expected command name</i>). A scheduler's policy must equal
+the script object it runs, or RouterOS refuses with <i>not enough permissions to run
+script</i>.</p>
+<table>
+<tr><th>Scheduler</th><th>start</th><th>interval</th><th>on-event</th><th>policy</th></tr>
+<tr><td><code>mbc3-restore-state</code></td><td>startup</td><td>0 (once)</td><td><code>/system script run mbc3-restore-state</code></td><td><code>ftp,read,write,policy</code></td></tr>
+<tr><td><code>mbc3-run</code></td><td>startup</td><td>1m</td><td><code>:delay 50s; /system script run MobileBandChange3</code></td><td><code>ftp,read,write,policy,test</code></td></tr>
+</table>
+<p>The 50-second startup delay on <code>mbc3-run</code> mirrors the bundle's tested
+template — it lets the modem settle past its boot-time partial-data window before the
+first poll, which reduces <code>monitor-invalid</code> noise in the early-boot log.</p>
+
+<!-- ============================================================ -->
+<h2 id="policies">Policies</h2>
+<p>Each policy bit and why this suite needs it (confirmed on the live router):</p>
+<table>
+<tr><th>Bit</th><th>Required by</th><th>Why</th></tr>
+<tr><td><code>read</code></td><td>all</td><td>baseline config read</td></tr>
+<tr><td><code>write</code></td><td>all</td><td>baseline config change</td></tr>
+<tr><td><code>policy</code></td><td>all</td><td>write <code>:global</code> variables to RAM</td></tr>
+<tr><td><code>ftp</code></td><td>MobileBandChange3, mbc3-restore-state, mbc3-cleanup</td><td>read / write / remove a file under <code>/file</code> — required for the inline state save, the restore read, and the cleanup remove</td></tr>
+<tr><td><code>test</code></td><td>MobileBandChange3</td><td>read LTE via <code>/interface lte monitor</code></td></tr>
+</table>
+<h4>Object &harr; scheduler policy map</h4>
+<table>
+<tr><th>Object</th><th>Policy</th></tr>
+<tr><td><code>MobileBandChange3</code> + <code>mbc3-run</code> scheduler</td><td><code>ftp,read,write,policy,test</code></td></tr>
+<tr><td><code>mbc3-restore-state</code> + its scheduler</td><td><code>ftp,read,write,policy</code></td></tr>
+<tr><td><code>mbc3-setup</code></td><td><code>read,write,policy</code></td></tr>
+<tr><td><code>mbc3-cleanup</code></td><td><code>ftp,read,write,policy</code></td></tr>
+</table>
+<div class="note">Without <code>ftp</code> on <code>MobileBandChange3</code>, every save
+ends in the on-error block and logs <code>"inline state save failed"</code>. Without
+<code>test</code>, the modem read returns an empty array and you get an unending stream
+of <code>monitor-empty</code>. These are project invariants — don't strip them.</div>
+
+<!-- ============================================================ -->
+<h2 id="state">State file</h2>
+<div class="meta">
+  <span><b>path</b> <code>/file mbc3-state.txt</code></span>
+  <span><b>format</b> parse-replay code with markers</span>
+  <span><b>size bounds</b> 80 ≤ bytes ≤ 60 000</span>
+</div>
+<p>The state file is generated, validated, written, and read by the suite — never edit
+it by hand. Format:</p>
+<pre><code># MBC3-STATE-V1
+:global mbc3Debug
+:set mbc3Debug false
+:global mbc3DebugRaw
+:set mbc3DebugRaw false
+:global mbc3HeartbeatEvery
+:set mbc3HeartbeatEvery 60
+:global mbc3QualityMonitor
+:set mbc3QualityMonitor false
+:global mbc3LastPrimary
+:set mbc3LastPrimary "b3@10MHz earfcn: 1444 phy-cellid: 207"
+:global mbc3LastCA
+:set mbc3LastCA "b3 ; b1"
+:global mbc3LastCARaw
+:set mbc3LastCARaw "b3 ; b1"
+:global mbc3LastLRsrp
+:set mbc3LastLRsrp "good"
+:global mbc3LastLSinr
+:set mbc3LastLSinr "good"
+:global mbc3LastNrActive
+:set mbc3LastNrActive false
+:global mbc3PendingLRsrp
+:set mbc3PendingLRsrp ""
+:global mbc3PendingLRsrpCount
+:set mbc3PendingLRsrpCount 0
+:global mbc3PendingLSinr
+:set mbc3PendingLSinr ""
+:global mbc3PendingLSinrCount
+:set mbc3PendingLSinrCount 0
+# MBC3-STATE-END</code></pre>
+<p>Strings are quoted, with <code>\</code>, <code>"</code>, and <code>$</code> escaped by
+the <code>escapeStr</code> helper inside <code>MobileBandChange3</code>. The
+<code>mbc3-restore-state</code> allow-list guard rejects any line outside this exact
+shape — see the <a href="#restore">validation pipeline</a>.</p>
+<p><b>Save write sequence</b> (every designated exit point):</p>
+<ol>
+<li>Build the payload via <code>mbc3BuildState</code>.</li>
+<li><code>/file remove [find name="mbc3-state.txt"]</code> — old file gone (tolerated if absent).</li>
+<li><code>/file print file="mbc3-state.txt"</code> — creates the file empty.</li>
+<li><code>:delay 200ms</code> — settle time so the new file is visible.</li>
+<li><code>/file find name="mbc3-state.txt"</code> — re-locate the new file id.</li>
+<li><code>/file set $id contents=$payload</code> — write the body.</li>
+<li>Read back, check that <code># MBC3-STATE-END</code> is present in the contents.</li>
+</ol>
+<p>The whole block is wrapped in <code>:do { … } on-error={ … }</code> so a failure logs
+a warning and the next save retries from scratch — there is no partial-file state.</p>
+
+<!-- ============================================================ -->
+<h2 id="commands">Commands</h2>
+<h4>Inspect</h4>
+<pre><code># Are scripts and schedulers registered with the right names and policies?
+/system script print where name~"^(MobileBandChange3|mbc3-)"
+/system scheduler print where name~"^mbc3-"
+
+# Current state file
+/file get [find name="mbc3-state.txt"] contents
+
+# Recent log activity
+/log print where message~"\\[MobileBandChange3\\]"
+/log print where message~"\\[mbc3-(restore-state|cleanup|setup|install)\\]"
+
+# Current globals (in RAM)
+:put $mbc3LastPrimary
+:put $mbc3LastCA
+:put $mbc3LastLRsrp
+:put $mbc3LastLSinr
+:put $mbc3RunCount
+:put $mbc3HeartbeatCount
+
+# Last-run probe (where the previous run was when it stopped)
+:put $mbc3LastRunProbe
+:put $mbc3LastRunProbeDetail
+:put $mbc3LastRunFailProbe</code></pre>
+
+<h4>Trigger a run by hand</h4>
+<pre><code>/system script run MobileBandChange3
+/system script run mbc3-restore-state</code></pre>
+
+<h4>Reset state without uninstalling</h4>
+<p>There is no dedicated reset helper. To force a cold start without removing the
+scripts:</p>
+<pre><code>/file remove [find name="mbc3-state.txt"]
+/system script environment remove [find where name~"^mbc3"]
+/system script run MobileBandChange3</code></pre>
+
+<h4>Switch heartbeat cadence</h4>
+<pre><code>:global mbc3HeartbeatEvery
+:set mbc3HeartbeatEvery 30   # ~30 min with a 1-min scheduler
+# value will be persisted by the next state save</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="testing">Testing</h2>
+<p>The runtime scripts (<code>MobileBandChange3</code>, <code>mbc3-restore-state</code>)
+are zero-executable-line diff vs the upstream <code>routeros_bundle</code> b2.22 sources
+that were confirmed working at the 2026-05-31 18:41 reboot on RouterOS 7.21.4 / MikroTik
+Chateau 5G R17 AX / Quectel RG650E-EU. Verify the equivalence on your local checkouts:</p>
+<pre><code>diff &lt;(grep -v '^\s*#' MobileBandCheckup/mbc3/MobileBandChange3.rsc | sed '/^\s*$/d') \
+     &lt;(grep -v '^\s*#' routeros_bundle/scripts/MobileBandChange3.rsc | sed '/^\s*$/d')
+
+diff &lt;(grep -v '^\s*#' MobileBandCheckup/mbc3/mbc3-restore-state.rsc | sed '/^\s*$/d') \
+     &lt;(grep -v '^\s*#' routeros_bundle/helpers/mbc3-restore-state.rsc | sed '/^\s*$/d')</code></pre>
+<p>Both should produce no output. If they don't, the runtime files have drifted from the
+tested set and the "confirmed working" claim no longer applies.</p>
+
+<h4>On-router smoke test (post-install)</h4>
+<ol>
+<li>Import the installer: <code>/import file-name=mbc3-install.rsc</code></li>
+<li>Confirm objects exist with the right policy:
+<pre><code>/system script print detail where name="MobileBandChange3"
+/system scheduler print detail where name="mbc3-run"</code></pre>
+Policy field on both must be <code>ftp,read,write,policy,test</code>.</li>
+<li>Trigger a run by hand and look for <code>LTE init</code>:
+<pre><code>/system script run MobileBandChange3
+/log print where message~"LTE init"</code></pre></li>
+<li>Verify the state file was created:
+<pre><code>/file print where name="mbc3-state.txt"
+/file get [find name="mbc3-state.txt"] contents</code></pre>
+Must end with <code># MBC3-STATE-END</code>.</li>
+<li>Reboot and verify the restore wins the race (or the inline restore-guard saves the day):
+<pre><code>/system reboot
+# after reboot:
+/log print where message~"\\[mbc3-restore-state\\] state restored"</code></pre></li>
+</ol>
+
+<h4>Dry-run the uninstaller before trusting it</h4>
+<pre><code>/system script run mbc3-cleanup
+/log print where message~"\\[mbc3-cleanup\\]"
+# Every line should be tagged DRY-RUN. If you see "removed" instead, the commit
+# flag is still armed from a previous session.</code></pre>
+
+<footer>
+MobileBandCheckup — mbc3-final-20260601-bundle-aligned. License: MIT.
+Aligned with routeros_bundle b2.22 (hardware-tested 2026-05-31 18:41 UTC).
+</footer>
+
+</main>
+</div>
+</body>
+</html>

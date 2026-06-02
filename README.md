@@ -4,6 +4,8 @@
 
 RouterOS scripting suite for MikroTik routers that monitors LTE/NR (5G NSA) band changes and signal quality on a modem interface, logging every meaningful transition to the system log and persisting comparison state across reboots.
 
+📖 **Full reference:** [`MANUAL.html`](MANUAL.html) — every script, every global, every tunable with its default and range, the schedulers and required policies, the state-file format, the operator commands, and the on-router smoke-test procedure.
+
 > ✅ **Confirmed working on hardware.** The runtime scripts `MobileBandChange3.rsc` and `mbc3-restore-state.rsc` are functionally identical (zero executable-line differences) to the upstream `routeros_bundle` b2.22 versions that were verified working after the **2026-05-31 18:41** reboot on RouterOS 7.21.4 / MikroTik Chateau 5G R17 AX / Quectel RG650E-EU modem. The schedulers and script policies registered by `mbc3-install.rsc` mirror the bundle's tested `scheduler_templates.rsc` exactly. The installer/setup/cleanup wrappers are MobileBandCheckup-original code that produces the same end-state on the router.
 
 ---

@@ -4,6 +4,11 @@ Append-only. Never trim or delete entries. Newest first.
 
 ---
 
+## 2026-06-02 00:00 UTC — mbc3-final-20260601-bundle-aligned
+
+- Added `MANUAL.html` — single-file dark-theme reference manual modelled on the upstream `routeros_bundle` MANUAL.html. Covers overview/architecture, install / upgrade / uninstall flow, RouterOS gotchas, every script (MobileBandChange3, mbc3-restore-state, mbc3-install, mbc3-setup, mbc3-cleanup), globals reference (state/runtime/tunable/guard), tunables with defaults and ranges, schedulers and required policies, state-file format and save sequence, operator commands, and an on-router smoke-test procedure including the equivalence diff against the bundle.
+- README links to the manual from the header.
+
 ## 2026-06-01 12:00 UTC — mbc3-final-20260601-bundle-aligned
 
 > ✅ **Tested transitively via routeros_bundle b2.22.** After this change, `MobileBandChange3.rsc` and `mbc3-restore-state.rsc` are byte-for-byte equivalent on executable lines (comments and headers excepted) to the routeros_bundle b2.22 sources confirmed working at the 2026-05-31 18:41 reboot on RouterOS 7.21.4 / MikroTik Chateau 5G R17 AX / Quectel RG650E-EU. The installer registers the same script policies and scheduler policies the bundle's `scheduler_templates.rsc` uses on the live router.
