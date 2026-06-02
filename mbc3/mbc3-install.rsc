@@ -1,5 +1,5 @@
 # mbc3-install
-# revision: mbc3-final-20260425-write-min-v1
+# revision: mbc3-final-20260602-save-helper-revert
 #
 # Bootstrap installer. Run via:
 #   /import file-name=mbc3-install.rsc
@@ -8,17 +8,39 @@
 #
 # Requires these files to be present on router flash:
 #   MobileBandChange3.rsc
-#   mbc3-save.rsc
-#   mbc3-restore.rsc
+#   mbc3-restore-state.rsc
 #   mbc3-setup.rsc
+#   mbc3-cleanup.rsc
 #
 # What it does:
-#   1. Registers all four scripts in /system script
-#   2. Registers scheduler entries
+#   1. Removes legacy script/scheduler names from prior revisions if present
+#      (mbc3-restore script, mbc3-main scheduler).
+#   2. Registers all four scripts in /system script with explicit policy.
+#   3. Registers scheduler entries with policy matching each script.
+#
+# Policy is REQUIRED. RouterOS refuses to run a scheduled script when the
+# scheduler's policy does not exactly match the script object's policy
+# ("not enough permissions to run script"). Per-object policy:
+#   MobileBandChange3   : ftp,read,write,policy,test
+#       ftp    = inline /file mbc3-state.txt write
+#       test   = /interface lte monitor
+#       policy = :global var writes
+#   mbc3-restore-state  : ftp,read,write,policy
+#       ftp    = read state file
+#       policy = :global var writes
+#   mbc3-setup          : read,write,policy
+#   mbc3-cleanup        : ftp,read,write,policy
+#       ftp = /file remove of state file
+#
+# These match the bundle's confirmed-working set (routeros_bundle b2.22,
+# 2026-05-31 18:41 reboot, RouterOS 7.21.4, MikroTik Chateau 5G, Quectel
+# RG650E-EU). See routeros_bundle/schedulers/scheduler_templates.rsc.
 #
 # After install, source .rsc files can be removed — not needed at runtime.
-# State is stored in the mbc3-state system script (NVRAM), not on flash.
+# State is stored in /file mbc3-state.txt, written inline by MobileBandChange3
+# on every state change and read back by mbc3-restore-state on boot.
 # To update schedulers later without touching scripts: /system script run mbc3-setup
+# To remove everything: /system script run mbc3-cleanup
 
 :local logPrefix "[mbc3-install] "
 
@@ -32,6 +54,7 @@
     :local file $2
     :local comment $3
     :local minLen $4
+    :local policy $5
 
     :local fid [/file find name=$file]
     :if ([:len $fid] = 0) do={
@@ -48,11 +71,11 @@
     }
 
     :do {
-        /system script add name=$name source=$src comment=$comment
-        :log info ("[mbc3-install] script added: " . $name . " len=" . $srcLen)
+        /system script add name=$name source=$src comment=$comment policy=$policy
+        :log info ("[mbc3-install] script added: " . $name . " len=" . $srcLen . " policy=" . $policy)
     } on-error={
-        /system script set [find name=$name] source=$src comment=$comment
-        :log info ("[mbc3-install] script updated: " . $name . " len=" . $srcLen)
+        /system script set [find name=$name] source=$src comment=$comment policy=$policy
+        :log info ("[mbc3-install] script updated: " . $name . " len=" . $srcLen . " policy=" . $policy)
     }
 }
 
@@ -65,45 +88,54 @@
     :local interval $3
     :local onEvent $4
     :local comment $5
+    :local policy $6
 
     :do {
-        /system scheduler add name=$name start-time=$startTime interval=$interval on-event=$onEvent comment=$comment
-        :log info ("[mbc3-install] scheduler added: " . $name)
+        /system scheduler add name=$name start-time=$startTime interval=$interval on-event=$onEvent comment=$comment policy=$policy
+        :log info ("[mbc3-install] scheduler added: " . $name . " policy=" . $policy)
     } on-error={
-        /system scheduler set [find name=$name] start-time=$startTime interval=$interval on-event=$onEvent comment=$comment
-        :log info ("[mbc3-install] scheduler updated: " . $name)
+        /system scheduler set [find name=$name] start-time=$startTime interval=$interval on-event=$onEvent comment=$comment policy=$policy
+        :log info ("[mbc3-install] scheduler updated: " . $name . " policy=" . $policy)
     }
 }
 
-# --- Step 1: Register scripts ---
-$upsertScript "MobileBandChange3" "MobileBandChange3.rsc" "LTE band change monitor - main loop" "20000"
-
-$upsertScript "mbc3-save" "mbc3-save.rsc" "LTE band change monitor - persist state to NVRAM script" "2000"
-
-$upsertScript "mbc3-restore" "mbc3-restore.rsc" "LTE band change monitor - restore state on boot" "300"
-
-$upsertScript "mbc3-setup" "mbc3-setup.rsc" "LTE band change monitor - scheduler setup (safe to re-run)" "500"
-
-# Create the mbc3-state script slot if it does not exist.
-# This is the NVRAM-based state store — mbc3-save writes globals into its
-# source on every state change. mbc3-restore runs it on boot to reload them.
-# It starts empty; mbc3-save populates it on the first run.
-:if ([:len [/system script find name="mbc3-state"]] = 0) do={
-    /system script add name="mbc3-state" source="" comment="LTE band monitor - persisted state (auto-managed, do not edit)"
-    :log info ($logPrefix . "script created: mbc3-state")
-} else={
-    :log info ($logPrefix . "script exists: mbc3-state")
+# --- Step 0: Remove legacy names from prior revisions ---
+# Pre-bundle-aligned revisions used mbc3-restore (script) and mbc3-main
+# (scheduler). Remove them here so upgraders end up with a single, clean set
+# of names matching the bundle. Tolerates absence.
+:if ([:len [/system scheduler find name="mbc3-main"]] > 0) do={
+    /system scheduler remove [find name="mbc3-main"]
+    :log info ($logPrefix . "legacy scheduler removed: mbc3-main (replaced by mbc3-run)")
+}
+:if ([:len [/system script find name="mbc3-restore"]] > 0) do={
+    /system script remove [find name="mbc3-restore"]
+    :log info ($logPrefix . "legacy script removed: mbc3-restore (replaced by mbc3-restore-state)")
 }
 
-# --- Step 2: Register scheduler entries ---
-# Order matters: mbc3-restore must appear before mbc3-main so it runs first on boot.
-#
-# mbc3-restore: interval=0 fires once per boot. Kept enabled intentionally —
-#   removing it causes a cold start (state loss) on every reboot.
-# mbc3-main: fires once at startup then repeats every 1 minute.
-$upsertScheduler "mbc3-restore" "startup" "0" "/system script run mbc3-restore" "LTE band monitor - restore state (runs once per boot)"
+# --- Step 1: Register scripts ---
+$upsertScript "MobileBandChange3" "MobileBandChange3.rsc" "LTE band change monitor - main loop" "20000" "ftp,read,write,policy,test"
 
-$upsertScheduler "mbc3-main" "startup" "1m" "/system script run MobileBandChange3" "LTE band monitor - main loop (runs every 1 min)"
+$upsertScript "mbc3-restore-state" "mbc3-restore-state.rsc" "LTE band change monitor - restore state on boot" "300" "ftp,read,write,policy"
+
+$upsertScript "mbc3-setup" "mbc3-setup.rsc" "LTE band change monitor - scheduler setup (safe to re-run)" "500" "read,write,policy"
+
+$upsertScript "mbc3-cleanup" "mbc3-cleanup.rsc" "LTE band change monitor - remove scripts, schedulers, state, and globals" "500" "ftp,read,write,policy"
+
+# State is stored in /file mbc3-state.txt. The file is created on the first
+# state save by MobileBandChange3 — no install step needed. mbc3-restore-state
+# tolerates a missing file (cold start path).
+
+# --- Step 2: Register scheduler entries ---
+# Order matters: mbc3-restore-state must run before mbc3-run on boot.
+#
+# mbc3-restore-state: interval=0 fires once per boot. Kept enabled intentionally
+#   — removing it causes a cold start (state loss) on every reboot.
+# mbc3-run: fires once at startup then repeats every 1 minute, with a 50s
+#   stagger via :delay so it doesn't race the boot. Mirrors the bundle's tested
+#   "mbc3-run" scheduler exactly.
+$upsertScheduler "mbc3-restore-state" "startup" "0" "/system script run mbc3-restore-state" "LTE band monitor - restore state (runs once per boot)" "ftp,read,write,policy"
+
+$upsertScheduler "mbc3-run" "startup" "1m" ":delay 50s; /system script run MobileBandChange3" "LTE band monitor - main loop (runs every 1 min after a 50s startup stagger)" "ftp,read,write,policy,test"
 
 :log info ($logPrefix . "install complete")
 
@@ -118,3 +150,6 @@ $upsertScheduler "mbc3-main" "startup" "1m" "/system script run MobileBandChange
 
 # :global mbc3DebugRaw
 # :set mbc3DebugRaw false           # set true for raw metric lines on every event
+
+# :global mbc3QualityMonitor
+# :set mbc3QualityMonitor false     # default false; set true to enable rsrp/sinr-quality-change events

@@ -1,7 +1,7 @@
 # MobileBandChange3
-# revision: mbc3-final-20260425-write-min-v1
-# scripts: MobileBandChange3.rsc  mbc3-save.rsc  mbc3-restore.rsc
-# scheduler: mbc3-restore (startup, once), mbc3-main (startup, 1m interval)
+# revision: mbc3-final-20260602-save-helper-revert
+# scripts: MobileBandChange3.rsc  mbc3-restore-state.rsc
+# scheduler: mbc3-restore-state (startup, once), mbc3-run (startup, 1m interval, :delay 50s)
 
 :global mbc3LastPrimary
 :global mbc3LastCA
@@ -33,8 +33,8 @@
 :global mbc3LastRunProbeDetail
 :global mbc3LastRunFailProbe
 
-# Set by mbc3-restore on every boot. Checked here to guard against the
-# scheduler race where mbc3-main fires before mbc3-restore has completed.
+# Set by mbc3-restore-state on every boot. Checked here to guard against the
+# scheduler race where mbc3-run fires before mbc3-restore-state has completed.
 :global mbc3RestoreDone
 
 :local iface "lte1"
@@ -45,6 +45,21 @@
 # Volatile debounce counters may change without forcing an immediate save.
 # Save fires once at each exit point and at end of script.
 :local stateChanged false
+
+# -----------------------------
+# Startup restore guard
+# If mbc3-restore-state has not yet run this boot (mbc3RestoreDone is "nothing"),
+# run it inline BEFORE reading any persisted state below (options + Last*/Pending*
+# globals). Eliminates the scheduler race where mbc3-run fires before
+# mbc3-restore-state; without this, the first post-boot run would read defaults
+# instead of restored settings. Safe to call multiple times — mbc3-restore-state
+# is idempotent. mbc3RestoreDone is not persisted; it clears on every reboot so
+# this guard fires exactly once per boot on the first mbc3-run that wins the
+# race.
+# -----------------------------
+:if ([:typeof $mbc3RestoreDone] = "nothing") do={
+    /system script run mbc3-restore-state
+}
 
 # -----------------------------
 # Runtime options from globals
@@ -162,7 +177,7 @@
             :local s [:tostr $item]
             :if ($s != "") do={
                 :local marker ("|" . $s . "|")
-                :if ([:find $used $marker] = nil) do={
+                :if ([:typeof [:find $used $marker]] != "num") do={
                     :set used ($used . $s . "|")
                     :if ($out = "") do={
                         :set out $s
@@ -185,7 +200,7 @@
     :local token [:tostr $2]
 
     :local p [:find $text $token]
-    :if ($p = nil) do={ :return "" }
+    :if ([:typeof $p] != "num") do={ :return "" }
 
     :local start ($p + [:len $token])
     :return [:pick $text $start [:len $text]]
@@ -197,13 +212,13 @@
     :local endToken [:tostr $3]
 
     :local p1 [:find $text $startToken]
-    :if ($p1 = nil) do={ :return "" }
+    :if ([:typeof $p1] != "num") do={ :return "" }
 
     :local start ($p1 + [:len $startToken])
     :local tail [:pick $text $start [:len $text]]
 
     :local p2 [:find $tail $endToken]
-    :if ($p2 = nil) do={ :return $tail }
+    :if ([:typeof $p2] != "num") do={ :return $tail }
 
     :return [:pick $tail 0 $p2]
 }
@@ -214,7 +229,7 @@
 
     :for i from=0 to=([:len $text] - 1) do={
         :local c [:pick $text $i ($i + 1)]
-        :if ([:find "0123456789" $c] != nil) do={
+        :if ([:typeof [:find "0123456789" $c]] = "num") do={
             :set val ($val . $c)
         } else={
             :if ($val != "") do={ :break }
@@ -279,16 +294,79 @@
 }
 
 # -----------------------------
-# Startup restore guard
-# If mbc3-restore has not yet run this boot (mbc3RestoreDone is "nothing"),
-# run it inline before reading any state. Eliminates the scheduler race where
-# mbc3-main fires before mbc3-restore. Safe to call multiple times —
-# mbc3-restore is idempotent. mbc3RestoreDone is not persisted; it clears
-# on every reboot so this guard fires exactly once per boot on the first
-# mbc3-main invocation that wins the race.
+# State persistence helpers (inline, file-based)
+# Save writes mbc3-state.txt as parse-replay code (markers + :global/:set);
+# mbc3-restore-state reads it back via [:parse] under an allow-list guard.
+# Values are quoted+escaped so any content (";", quotes, spaces, $) survives.
+# No external mbc3-save script.
 # -----------------------------
-:if ([:typeof $mbc3RestoreDone] = "nothing") do={
-    /system script run mbc3-restore
+:local boolStr do={
+    :if ([:typeof $1] = "nothing") do={ :return "false" }
+    :if ($1 = true) do={ :return "true" }
+    :return "false"
+}
+
+:local intStr do={
+    :if ([:typeof $1] = "nothing") do={ :return $2 }
+    :if ([:len [:tostr $1]] = 0) do={ :return $2 }
+    :return [:tostr $1]
+}
+
+# escapeStr: escape \ " $ so a value survives a quoted :set re-parsed on
+# restore. Covered by mbc3-restore-state's allow-list guard which rejects any
+# unescaped $ in a saved value.
+:local escapeStr do={
+    :if ([:typeof $1] = "nothing") do={ :return "" }
+    :local s [:tostr $1]
+    :local out ""
+    :local slen [:len $s]
+    :if ($slen = 0) do={ :return "" }
+    :for i from=0 to=($slen - 1) do={
+        :local c [:pick $s $i ($i + 1)]
+        :if ($c = "\\") do={ :set out ($out . "\\\\") } else={
+            :if ($c = "\"") do={ :set out ($out . "\\\"") } else={
+                :if ($c = "\$") do={ :set out ($out . "\\\$") } else={ :set out ($out . $c) }
+            }
+        }
+    }
+    :return $out
+}
+
+# Builds the persisted-state payload (parse-replay code). Reads the persisted
+# globals and returns the string written to mbc3-state.txt. Calls the helpers
+# above via RouterOS function-value scoping (same way getVal calls joinArray).
+:local mbc3BuildState do={
+    :global mbc3Debug
+    :global mbc3DebugRaw
+    :global mbc3HeartbeatEvery
+    :global mbc3QualityMonitor
+    :global mbc3LastPrimary
+    :global mbc3LastCA
+    :global mbc3LastCARaw
+    :global mbc3LastLRsrp
+    :global mbc3LastLSinr
+    :global mbc3LastNrActive
+    :global mbc3PendingLRsrp
+    :global mbc3PendingLRsrpCount
+    :global mbc3PendingLSinr
+    :global mbc3PendingLSinrCount
+    :local q "\""
+    :return ("# MBC3-STATE-V1\n" . \
+        ":global mbc3Debug\n:set mbc3Debug " . [$boolStr $mbc3Debug] . "\n" . \
+        ":global mbc3DebugRaw\n:set mbc3DebugRaw " . [$boolStr $mbc3DebugRaw] . "\n" . \
+        ":global mbc3HeartbeatEvery\n:set mbc3HeartbeatEvery " . [$intStr $mbc3HeartbeatEvery "60"] . "\n" . \
+        ":global mbc3QualityMonitor\n:set mbc3QualityMonitor " . [$boolStr $mbc3QualityMonitor] . "\n" . \
+        ":global mbc3LastPrimary\n:set mbc3LastPrimary " . $q . [$escapeStr $mbc3LastPrimary] . $q . "\n" . \
+        ":global mbc3LastCA\n:set mbc3LastCA " . $q . [$escapeStr $mbc3LastCA] . $q . "\n" . \
+        ":global mbc3LastCARaw\n:set mbc3LastCARaw " . $q . [$escapeStr $mbc3LastCARaw] . $q . "\n" . \
+        ":global mbc3LastLRsrp\n:set mbc3LastLRsrp " . $q . [$escapeStr $mbc3LastLRsrp] . $q . "\n" . \
+        ":global mbc3LastLSinr\n:set mbc3LastLSinr " . $q . [$escapeStr $mbc3LastLSinr] . $q . "\n" . \
+        ":global mbc3LastNrActive\n:set mbc3LastNrActive " . [$boolStr $mbc3LastNrActive] . "\n" . \
+        ":global mbc3PendingLRsrp\n:set mbc3PendingLRsrp " . $q . [$escapeStr $mbc3PendingLRsrp] . $q . "\n" . \
+        ":global mbc3PendingLRsrpCount\n:set mbc3PendingLRsrpCount " . [$intStr $mbc3PendingLRsrpCount "0"] . "\n" . \
+        ":global mbc3PendingLSinr\n:set mbc3PendingLSinr " . $q . [$escapeStr $mbc3PendingLSinr] . $q . "\n" . \
+        ":global mbc3PendingLSinrCount\n:set mbc3PendingLSinrCount " . [$intStr $mbc3PendingLSinrCount "0"] . "\n" . \
+        "# MBC3-STATE-END\n")
 }
 
 # -----------------------------
@@ -334,7 +412,28 @@
     :set mbc3FailProbe "iface-down"
     :set mbc3ProbeDetail "iface-not-running"
     :if ($debug = true) do={ :log debug ($logPrefix . "LTE iface not running - skipping poll") }
-    :if ($stateChanged = true) do={ /system script run mbc3-save }
+    :if ($stateChanged = true) do={
+        :do {
+            :local sf "mbc3-state.txt"
+            :local pl [$mbc3BuildState]
+            :if ([:len [/file find name=$sf]] > 0) do={ /file remove [find name=$sf] }
+            /file print file=$sf
+            :delay 200ms
+            :local ff [/file find name=$sf]
+            :if ([:len $ff] > 0) do={
+                /file set $ff contents=$pl
+                :if ([:typeof [:find [/file get $ff contents] "# MBC3-STATE-END"]] = "num") do={
+                    :log info ($logPrefix . "state saved -> " . $sf)
+                } else={
+                    :log warning ($logPrefix . "state save: end marker missing after write")
+                }
+            } else={
+                :log warning ($logPrefix . "state save: file not visible after 200ms")
+            }
+        } on-error={
+            :log warning ($logPrefix . "inline state save failed")
+        }
+    }
     :return ""
 }
 
@@ -421,7 +520,28 @@
     }
 
     :log warning ($logPrefix . "LTE monitor-invalid interface=" . $iface . " run-count=" . $mbc3RunCount . " fields=" . $missingFields . " action=skip-state-update")
-    :if ($stateChanged = true) do={ /system script run mbc3-save }
+    :if ($stateChanged = true) do={
+        :do {
+            :local sf "mbc3-state.txt"
+            :local pl [$mbc3BuildState]
+            :if ([:len [/file find name=$sf]] > 0) do={ /file remove [find name=$sf] }
+            /file print file=$sf
+            :delay 200ms
+            :local ff [/file find name=$sf]
+            :if ([:len $ff] > 0) do={
+                /file set $ff contents=$pl
+                :if ([:typeof [:find [/file get $ff contents] "# MBC3-STATE-END"]] = "num") do={
+                    :log info ($logPrefix . "state saved -> " . $sf)
+                } else={
+                    :log warning ($logPrefix . "state save: end marker missing after write")
+                }
+            } else={
+                :log warning ($logPrefix . "state save: file not visible after 200ms")
+            }
+        } on-error={
+            :log warning ($logPrefix . "inline state save failed")
+        }
+    }
     :return ""
 }
 
@@ -576,7 +696,26 @@
 
     # Save here before the early return — init is the only exit path that
     # cannot reach the save call at the bottom of the script.
-    /system script run mbc3-save
+    :do {
+        :local sf "mbc3-state.txt"
+        :local pl [$mbc3BuildState]
+        :if ([:len [/file find name=$sf]] > 0) do={ /file remove [find name=$sf] }
+        /file print file=$sf
+        :delay 200ms
+        :local ff [/file find name=$sf]
+        :if ([:len $ff] > 0) do={
+            /file set $ff contents=$pl
+            :if ([:typeof [:find [/file get $ff contents] "# MBC3-STATE-END"]] = "num") do={
+                :log info ($logPrefix . "state saved -> " . $sf)
+            } else={
+                :log warning ($logPrefix . "state save: end marker missing after write")
+            }
+        } else={
+            :log warning ($logPrefix . "state save: file not visible after 200ms")
+        }
+    } on-error={
+        :log warning ($logPrefix . "inline state save failed")
+    }
 
     :set mbc3Probe "done"
     :set mbc3ProbeDetail "done"
@@ -626,14 +765,14 @@
     :local newBand ""
 
     :local pOldBand [:find $mbc3LastPrimary "@"]
-    :if ($pOldBand = nil) do={
+    :if ([:typeof $pOldBand] != "num") do={
         :set oldBand $mbc3LastPrimary
     } else={
         :set oldBand [:pick $mbc3LastPrimary 0 $pOldBand]
     }
 
     :local pNewBand [:find $usedPrimary "@"]
-    :if ($pNewBand = nil) do={
+    :if ([:typeof $pNewBand] != "num") do={
         :set newBand $usedPrimary
     } else={
         :set newBand [:pick $usedPrimary 0 $pNewBand]
@@ -835,8 +974,10 @@
 
 # -----------------------------
 # Heartbeat
-# Periodic info-level snapshot. Also forces a rare save to confirm state is fresh
-# during long quiet periods even when nothing changes. Default is 60 runs.
+# Periodic one-line liveness snapshot. Also forces a rare save to confirm state
+# is fresh during long quiet periods even when nothing changes. Default 60 runs.
+# (Band switches / CA changes / iface up-down are logged as warnings when they
+# happen, so this is just the "still alive, nothing changed" beat.)
 # -----------------------------
 :set mbc3Probe "heartbeat"
 :set mbc3ProbeDetail "heartbeat-check"
@@ -844,12 +985,7 @@
 :set mbc3HeartbeatCount ($mbc3HeartbeatCount + 1)
 :if ($mbc3HeartbeatCount >= $heartbeatEvery) do={
     :set mbc3HeartbeatCount 0
-    :log info ($logPrefix . "LTE heartbeat run-count=" . $mbc3RunCount . " every=" . $heartbeatEvery)
-    :log info ($logPrefix . $techLine)
-    :log info ($logPrefix . $primaryLine)
-    :log info ($logPrefix . $caLine)
-    :log info ($logPrefix . $lteLine)
-    :log info ($logPrefix . $nrLine)
+    :log info ($logPrefix . "heartbeat run-count=" . $mbc3RunCount . " primary=\"" . $usedPrimary . "\" rsrp=" . $usedRsrp . "dBm(" . $lRsrp . ") sinr=" . $usedSinr . "dB(" . $lSinr . ") nr-rsrp=" . $usedNrRsrp . "dBm(" . $lNrRsrp . ")")
     :if ($debugRaw = true) do={
         :log debug ($logPrefix . $rawLteLine)
         :log debug ($logPrefix . $rawNrLine)
@@ -860,7 +996,28 @@
 # -----------------------------
 # Save on any state change
 # -----------------------------
-:if ($stateChanged = true) do={ /system script run mbc3-save }
+:if ($stateChanged = true) do={
+    :do {
+        :local sf "mbc3-state.txt"
+        :local pl [$mbc3BuildState]
+        :if ([:len [/file find name=$sf]] > 0) do={ /file remove [find name=$sf] }
+        /file print file=$sf
+        :delay 200ms
+        :local ff [/file find name=$sf]
+        :if ([:len $ff] > 0) do={
+            /file set $ff contents=$pl
+            :if ([:typeof [:find [/file get $ff contents] "# MBC3-STATE-END"]] = "num") do={
+                :log info ($logPrefix . "state saved -> " . $sf)
+            } else={
+                :log warning ($logPrefix . "state save: end marker missing after write")
+            }
+        } else={
+            :log warning ($logPrefix . "state save: file not visible after 200ms")
+        }
+    } on-error={
+        :log warning ($logPrefix . "inline state save failed")
+    }
+}
 
 :set mbc3Probe "done"
 :set mbc3ProbeDetail "done"
