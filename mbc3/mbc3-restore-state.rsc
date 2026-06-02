@@ -1,5 +1,5 @@
 # mbc3-restore-state
-# revision: mbc3-final-20260602-save-helper-revert
+# revision: mbc3-final-20260602-p0003-inline-helpers
 # Purpose:
 #   Restore MobileBandChange3 persisted globals from /file mbc3-state.txt.
 #

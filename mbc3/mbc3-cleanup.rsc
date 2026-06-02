@@ -1,5 +1,5 @@
 # mbc3-cleanup
-# revision: mbc3-final-20260602-save-helper-revert
+# revision: mbc3-final-20260602-p0003-inline-helpers
 #
 # Removes everything mbc3-install.rsc installs. Symmetric to mbc3-install.
 #

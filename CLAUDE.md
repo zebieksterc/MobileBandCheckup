@@ -1,9 +1,9 @@
 # MobileBandCheckup — Project Policies
 
 <!-- LAST CHANGE — only this block is updated on each change; all policies below are fixed -->
-date: 2026-06-02 16:00 UTC
-version: mbc3-final-20260602-save-helper-revert
-change: Added PROPOSALS.md as the permanent append-only registry of proposed changes to this repo (status lifecycle, required fields, template, sequential P-NNNN numbering). Two initial entries: P-0001 (Done — mbc3SaveState refactor post-mortem) and P-0002 (Pending — upstream routeros_bundle adoption of the /file remove length guard). README footer linked. Mirrors the routeros_bundle/PROPOSALS.md convention so both repos use the same proposal format.
+date: 2026-06-02 18:00 UTC
+version: mbc3-final-20260602-p0003-inline-helpers
+change: Fixed empty-save bug in mbc3/MobileBandChange3.rsc (P-0003 backport from upstream routeros_bundle commit 19734ae). Moved boolStr/intStr/escapeStr inside mbc3BuildState do={…} — at script-top they were invisible to the call sites inside the do={} block, so every persisted :set for a bool/int variable wrote an empty value. Also appended a corrective History entry to PROPOSALS.md#P-0001 (RouterOS scoping is lexical, not dynamic as that post-mortem concluded) and added P-0003 (Pending) tracking the backport.
 <!-- END LAST CHANGE -->
 
 ---

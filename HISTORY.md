@@ -4,6 +4,22 @@ Append-only. Never trim or delete entries. Newest first.
 
 ---
 
+## 2026-06-02 18:00 UTC — mbc3-final-20260602-p0003-inline-helpers
+
+**Empty-save bug fix (backport from upstream `routeros_bundle` P-0003).** The persisted state file `mbc3-state.txt` was being written with empty values for every bool/int variable because the three serialisation helpers (`boolStr`, `intStr`, `escapeStr`) were declared as `:local` at script-top but called from inside `mbc3BuildState do={…}`. RouterOS function-value name resolution does not expose a sibling `:local do={…}` definition across the boundary — those calls silently returned nothing. The escapeStr-wrapped string lines only *looked* populated because of the surrounding `$q . […] . $q` literal-quote wrapper; the bool/int lines came out with no value at all.
+
+- **`mbc3/MobileBandChange3.rsc`** — moved `boolStr`, `intStr`, and `escapeStr` inside `mbc3BuildState do={…}`'s body, deleted the outer definitions. Section comment rewritten to explain the cross-`:do{}` constraint. The MBC-specific `/file remove` length guards in the four save sites are preserved.
+- **`PROPOSALS.md`**:
+  - Appended a corrective History line to `P-0001` — RouterOS function-value scoping is **lexical**, not dynamic as the original post-mortem concluded. The dedup refactor reverted in `b846183` likely failed because it moved the helper *further from* the call site, not because of dynamic-resolution semantics. The body is left intact per the append-only rule.
+  - Added `P-0003` (Pending) tracking the backport itself.
+- **All five `.rsc` files + `MANUAL.html`** revision tag bumped to `mbc3-final-20260602-p0003-inline-helpers`.
+
+Source brief: `routeros_bundle/audit/p0003-mbc-backport-brief.md` (commit `76a85a7`). Upstream fix: `routeros_bundle` commit `19734ae` on branch `claude/dazzling-fermat-cCKGV`.
+
+After this fix, the executable-line diff vs upstream `routeros_bundle/scripts/MobileBandChange3.rsc` will not be empty until the upstream branch lands on the bundle's `main` (it'll only carry the four `/file remove` length-guard wraps that `PROPOSALS.md#P-0002` tracks).
+
+---
+
 ## 2026-06-02 16:00 UTC — mbc3-final-20260602-save-helper-revert
 
 - Added `PROPOSALS.md` — permanent append-only registry of proposed changes to this repo with explicit status lifecycle (Draft → Pending → Accepted → Done/Reverted/Deferred/Declined/Superseded), required fields per proposal, copy-paste template, sequential `P-NNNN` numbering. Two initial entries: `P-0001` (Done — the `mbc3SaveState` refactor post-mortem) and `P-0002` (Pending — track upstream `routeros_bundle` adoption of the `/file remove` length guard). README footer links to it. Mirrors the upstream `routeros_bundle/PROPOSALS.md` convention.

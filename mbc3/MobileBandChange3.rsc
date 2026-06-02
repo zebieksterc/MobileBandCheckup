@@ -1,5 +1,5 @@
 # MobileBandChange3
-# revision: mbc3-final-20260602-save-helper-revert
+# revision: mbc3-final-20260602-p0003-inline-helpers
 # scripts: MobileBandChange3.rsc  mbc3-restore-state.rsc
 # scheduler: mbc3-restore-state (startup, once), mbc3-run (startup, 1m interval, :delay 50s)
 
@@ -294,47 +294,22 @@
 }
 
 # -----------------------------
-# State persistence helpers (inline, file-based)
+# State persistence (inline, file-based — matches wd5gT/tdhT)
 # Save writes mbc3-state.txt as parse-replay code (markers + :global/:set);
 # mbc3-restore-state reads it back via [:parse] under an allow-list guard.
 # Values are quoted+escaped so any content (";", quotes, spaces, $) survives.
 # No external mbc3-save script.
+#
+# The three helpers (boolStr / intStr / escapeStr) live INSIDE the
+# mbc3BuildState do={…} block. RouterOS function-value scoping does not expose
+# `:local` definitions across a sibling `:local do={…}` boundary, so a helper
+# declared at script-top would silently return nothing here — empirically
+# observed before P-0003: every persisted `:set` for a bool/int variable came
+# out with no value at all (escapeStr lines only looked populated because of
+# the `$q . [...] . $q` literal-quote wrapper). Same precedent as tdhT.rsc
+# (inline esc) and the two inline esc copies in wd5gT.rsc:
+# "No cross-:do{} shared function in RouterOS -- change one, change all four."
 # -----------------------------
-:local boolStr do={
-    :if ([:typeof $1] = "nothing") do={ :return "false" }
-    :if ($1 = true) do={ :return "true" }
-    :return "false"
-}
-
-:local intStr do={
-    :if ([:typeof $1] = "nothing") do={ :return $2 }
-    :if ([:len [:tostr $1]] = 0) do={ :return $2 }
-    :return [:tostr $1]
-}
-
-# escapeStr: escape \ " $ so a value survives a quoted :set re-parsed on
-# restore. Covered by mbc3-restore-state's allow-list guard which rejects any
-# unescaped $ in a saved value.
-:local escapeStr do={
-    :if ([:typeof $1] = "nothing") do={ :return "" }
-    :local s [:tostr $1]
-    :local out ""
-    :local slen [:len $s]
-    :if ($slen = 0) do={ :return "" }
-    :for i from=0 to=($slen - 1) do={
-        :local c [:pick $s $i ($i + 1)]
-        :if ($c = "\\") do={ :set out ($out . "\\\\") } else={
-            :if ($c = "\"") do={ :set out ($out . "\\\"") } else={
-                :if ($c = "\$") do={ :set out ($out . "\\\$") } else={ :set out ($out . $c) }
-            }
-        }
-    }
-    :return $out
-}
-
-# Builds the persisted-state payload (parse-replay code). Reads the persisted
-# globals and returns the string written to mbc3-state.txt. Calls the helpers
-# above via RouterOS function-value scoping (same way getVal calls joinArray).
 :local mbc3BuildState do={
     :global mbc3Debug
     :global mbc3DebugRaw
@@ -350,6 +325,35 @@
     :global mbc3PendingLRsrpCount
     :global mbc3PendingLSinr
     :global mbc3PendingLSinrCount
+    :local boolStr do={
+        :if ([:typeof $1] = "nothing") do={ :return "false" }
+        :if ($1 = true) do={ :return "true" }
+        :return "false"
+    }
+    :local intStr do={
+        :if ([:typeof $1] = "nothing") do={ :return $2 }
+        :if ([:len [:tostr $1]] = 0) do={ :return $2 }
+        :return [:tostr $1]
+    }
+    # escapeStr: escape \ " $ so a value survives a quoted :set re-parsed on
+    # restore. Covered by mbc3-restore-state's allow-list guard which rejects
+    # any unescaped $ in a saved value.
+    :local escapeStr do={
+        :if ([:typeof $1] = "nothing") do={ :return "" }
+        :local s [:tostr $1]
+        :local out ""
+        :local slen [:len $s]
+        :if ($slen = 0) do={ :return "" }
+        :for i from=0 to=($slen - 1) do={
+            :local c [:pick $s $i ($i + 1)]
+            :if ($c = "\\") do={ :set out ($out . "\\\\") } else={
+                :if ($c = "\"") do={ :set out ($out . "\\\"") } else={
+                    :if ($c = "\$") do={ :set out ($out . "\\\$") } else={ :set out ($out . $c) }
+                }
+            }
+        }
+        :return $out
+    }
     :local q "\""
     :return ("# MBC3-STATE-V1\n" . \
         ":global mbc3Debug\n:set mbc3Debug " . [$boolStr $mbc3Debug] . "\n" . \
